@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from PySide6.QtCore import QAbstractListModel, QModelIndex, QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QIcon, QKeyEvent, QPainter, QPainterPath, QPalette, QPen, QPixmap
 from PySide6.QtWidgets import (
     QCompleter,
     QHBoxLayout,
     QLineEdit,
     QProgressBar,
     QSizePolicy,
+    QStyle,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QVBoxLayout,
@@ -63,21 +64,26 @@ class SuggestionDelegate(QStyledItemDelegate):
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         painter.save()
-        selected = bool(option.state & option.state.State_Selected)
-        background = QColor("#EADDFF" if selected else "transparent")
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
         if selected:
+            background = option.palette.color(QPalette.ColorRole.Highlight)
+            background.setAlpha(150)
             path = QPainterPath()
             path.addRoundedRect(option.rect.adjusted(5, 3, -5, -3), 12, 12)
             painter.fillPath(path, background)
         title = str(index.data(SuggestionModel.TitleRole) or "")
         url = str(index.data(SuggestionModel.UrlRole) or "")
-        painter.setPen(QColor("#1D1B20"))
+        title_role = (
+            QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text
+        )
+        painter.setPen(option.palette.color(title_role))
         title_font = option.font
         title_font.setWeight(600)
         painter.setFont(title_font)
         title_rect = option.rect.adjusted(18, 7, -12, -24)
         painter.drawText(title_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, title)
-        painter.setPen(QColor("#6750A4" if selected else "#49454F"))
+        detail = option.palette.color(title_role if selected else QPalette.ColorRole.PlaceholderText)
+        painter.setPen(detail)
         detail_font = option.font
         detail_font.setPointSizeF(max(8.0, detail_font.pointSizeF() - 1.0))
         detail_font.setWeight(400)
@@ -221,6 +227,7 @@ class NavigationBar(QWidget):
     bookmarkRequested = Signal()
     menuRequested = Signal(QPoint)
     siteInfoRequested = Signal()
+    profileRequested = Signal()
     navigateRequested = Signal(str)
     suggestionQueryChanged = Signal(str)
 
@@ -237,6 +244,7 @@ class NavigationBar(QWidget):
         self.security = SecurityIndicator(self)
         self.omnibox = Omnibox(self)
         self.bookmark_button = self._button("☆", "Добавить закладку (Ctrl+D)")
+        self.profile_button = self._button("U", "Профили")
         self.menu_button = self._button("⋮", "Меню Auralis")
         self.progress = QProgressBar(self)
         self.progress.setObjectName("pageLoadProgress")
@@ -254,6 +262,7 @@ class NavigationBar(QWidget):
         row.addWidget(self.security)
         row.addWidget(self.omnibox, 1)
         row.addWidget(self.bookmark_button)
+        row.addWidget(self.profile_button)
         row.addWidget(self.menu_button)
 
         layout = QVBoxLayout(self)
@@ -267,6 +276,7 @@ class NavigationBar(QWidget):
         self.reload_button.clicked.connect(self._reload_or_stop)
         self.home_button.clicked.connect(self.homeRequested)
         self.bookmark_button.clicked.connect(self.bookmarkRequested)
+        self.profile_button.clicked.connect(self.profileRequested)
         self.menu_button.clicked.connect(
             lambda: self.menuRequested.emit(
                 self.menu_button.mapToGlobal(self.menu_button.rect().bottomLeft())
@@ -315,6 +325,35 @@ class NavigationBar(QWidget):
         self.bookmark_button.setProperty("bookmarked", bookmarked)
         self.bookmark_button.style().unpolish(self.bookmark_button)
         self.bookmark_button.style().polish(self.bookmark_button)
+
+    def set_profile(self, name: str, avatar_path: str | None = None) -> None:
+        self.profile_button.setToolTip(f"Профиль: {name}")
+        source = QPixmap(avatar_path) if avatar_path else QPixmap()
+        if source.isNull():
+            self.profile_button.setIcon(QIcon())
+            self.profile_button.setText((name.strip()[:1] or "U").upper())
+            return
+        size = QSize(28, 28)
+        canvas = QPixmap(size)
+        canvas.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(canvas)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        clip = QPainterPath()
+        clip.addEllipse(0, 0, size.width(), size.height())
+        painter.setClipPath(clip)
+        painter.drawPixmap(
+            0,
+            0,
+            source.scaled(
+                size,
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
+            ),
+        )
+        painter.end()
+        self.profile_button.setText("")
+        self.profile_button.setIcon(QIcon(canvas))
+        self.profile_button.setIconSize(size)
 
     def _reload_or_stop(self) -> None:
         if self._loading:

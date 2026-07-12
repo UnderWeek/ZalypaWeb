@@ -230,6 +230,8 @@ class MaterialTabBar(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self._strip = _TabStrip(self)
+        self._suppress_move_signal = False
+        self._normalizing_move = False
         self._new_button = MaterialIconButton(self, variant="icon")
         self._new_button.setText("+")
         self._new_button.setToolTip("Новая вкладка (Ctrl+T)")
@@ -248,7 +250,7 @@ class MaterialTabBar(QWidget):
         self._strip.pinRequested.connect(self.pinTabRequested)
         self._strip.duplicateRequested.connect(self.duplicateTabRequested)
         self._strip.groupRequested.connect(self.groupTabRequested)
-        self._strip.tabMoved.connect(self.tabMoved)
+        self._strip.tabMoved.connect(self._handle_tab_moved)
         self._strip.previewRequested.connect(self.previewRequested)
         self._strip.previewHidden.connect(self.previewHidden)
 
@@ -294,7 +296,7 @@ class MaterialTabBar(QWidget):
         if pinned:
             target = self._pinned_count(exclude=index)
             if target != index:
-                self._strip.moveTab(index, target)
+                self._move_without_signal(index, target)
                 index = target
         if make_current:
             self._strip.setCurrentIndex(index)
@@ -340,7 +342,7 @@ class MaterialTabBar(QWidget):
                 self._pinned_count(exclude=index) if pinned else max(0, self._pinned_count(exclude=index))
             )
             if target != index:
-                self._strip.moveTab(index, target)
+                self._move_without_signal(index, target)
                 index = target
         return index
 
@@ -388,6 +390,33 @@ class MaterialTabBar(QWidget):
     def _emit_activated(self, index: int) -> None:
         if index >= 0:
             self.tabActivated.emit(index)
+
+    def _move_without_signal(self, source: int, destination: int) -> None:
+        self._suppress_move_signal = True
+        try:
+            self._strip.moveTab(source, destination)
+        finally:
+            self._suppress_move_signal = False
+
+    def _handle_tab_moved(self, source: int, destination: int) -> None:
+        if self._suppress_move_signal or self._normalizing_move:
+            return
+        metadata = self._strip.metadata(destination)
+        if metadata is None:
+            return
+        pinned_count = self._pinned_count()
+        corrected = destination
+        if metadata.pinned and destination >= pinned_count:
+            corrected = max(0, pinned_count - 1)
+        elif not metadata.pinned and destination < pinned_count:
+            corrected = pinned_count
+        if corrected != destination:
+            self._normalizing_move = True
+            try:
+                self._strip.moveTab(destination, corrected)
+            finally:
+                self._normalizing_move = False
+        self.tabMoved.emit(source, corrected)
 
 
 # Friendly alias for controllers using the file's historical name.

@@ -155,11 +155,20 @@ class RequestInterceptor(QWebEngineUrlRequestInterceptor):
 
     blocked = Signal(str, str)
 
-    def __init__(self, adblocker: Any | None = None, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        adblocker: Any | None = None,
+        *,
+        do_not_track: bool = False,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self.adblocker = adblocker
+        self.do_not_track = do_not_track
 
     def interceptRequest(self, info: QWebEngineUrlRequestInfo) -> None:  # noqa: N802 - Qt API
+        if self.do_not_track:
+            info.setHttpHeader(b"DNT", b"1")
         if self.adblocker is None:
             return
         url = info.requestUrl().toString()
@@ -313,6 +322,7 @@ class BrowserDownload(QObject):
         self.started_at = time.monotonic()
         self._last_at = self.started_at
         self._last_bytes = 0
+        self._finished_emitted = False
         self.speed = 0.0
         for signal_name in (
             "receivedBytesChanged",
@@ -389,7 +399,13 @@ class BrowserDownload(QObject):
             self.speed = instant if self.speed <= 0 else self.speed * 0.65 + instant * 0.35
             self._last_at, self._last_bytes = now, current
         self.changed.emit()
-        if "Completed" in self.state or "Cancelled" in self.state or "Interrupted" in self.state:
+        terminal = (
+            "Completed" in self.state
+            or "Cancelled" in self.state
+            or "Interrupted" in self.state
+        )
+        if terminal and not self._finished_emitted:
+            self._finished_emitted = True
             self.finished.emit()
 
 
@@ -462,7 +478,7 @@ class BrowserEngine(QObject):
             settings.setAttribute(attribute, enabled)
         handler = InternalSchemeHandler(self.resource_root, self.search_url, profile)
         profile.installUrlSchemeHandler(INTERNAL_SCHEME, handler)
-        interceptor = RequestInterceptor(self.adblocker, profile)
+        interceptor = RequestInterceptor(self.adblocker, parent=profile)
         interceptor.blocked.connect(self.request_blocked)
         profile.setUrlRequestInterceptor(interceptor)
         profile.downloadRequested.connect(self._download_requested)
@@ -504,6 +520,28 @@ class BrowserEngine(QObject):
         if cookies:
             profile.cookieStore().deleteAllCookies()
         profile.clearHttpCache()
+
+    def set_cookie_policy(self, profile_id: str, *, allow_third_party: bool) -> None:
+        """Apply a profile-wide cookie filter without rebuilding Chromium state."""
+
+        profile = self._profiles.get(profile_id)
+        if profile is None:
+            return
+        profile.cookieStore().setCookieFilter(
+            lambda request: allow_third_party or not bool(request.thirdParty)
+        )
+
+    def set_do_not_track(self, profile_id: str, enabled: bool) -> None:
+        objects = self._profile_objects.get(profile_id)
+        if objects is not None:
+            objects[1].do_not_track = bool(enabled)
+
+    def set_page_preloading(self, profile_id: str, enabled: bool) -> None:
+        profile = self._profiles.get(profile_id)
+        if profile is not None:
+            profile.settings().setAttribute(
+                QWebEngineSettings.WebAttribute.DnsPrefetchEnabled, bool(enabled)
+            )
 
     def shutdown(self) -> None:
         for profile in self._profiles.values():

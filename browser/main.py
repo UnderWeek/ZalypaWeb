@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import os
 import sys
@@ -147,11 +148,18 @@ def build_context(
         downloads=Path(str(values.get("downloads.directory") or profile.paths.downloads)),
     )
     engine.create_profile(profile.id, engine_paths, off_the_record=incognito)
+    engine.set_cookie_policy(
+        profile.id,
+        allow_third_party=not bool(values.get("privacy.third_party_cookies", True)),
+    )
+    engine.set_do_not_track(profile.id, bool(values.get("privacy.do_not_track", False)))
+    engine.set_page_preloading(profile.id, bool(values.get("performance.preload_pages", True)))
     theme = ThemeManager(
         app,
         mode=str(values.get("appearance.theme", "system")),
         accent=str(values.get("appearance.accent", "#6750A4")),
         density=str(values.get("appearance.density", "comfortable")),
+        scale=int(values.get("appearance.ui_scale", 100)),
     )
     theme.apply()
     return BrowserContext(
@@ -178,7 +186,18 @@ def _configure_pre_application(hardware_acceleration: bool = True) -> None:
     register_internal_scheme()
 
 
+def _configure_console_encoding() -> None:
+    """Keep Russian CLI help/logs printable in legacy Windows terminals."""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            with contextlib.suppress(OSError, ValueError):
+                reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _configure_console_encoding()
     args = build_parser().parse_args(argv)
     profile_manager = ProfileManager(args.data_dir)
     profile = select_profile(profile_manager, args.profile)

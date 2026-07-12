@@ -106,6 +106,23 @@ class AdBlockTests(unittest.TestCase):
             self.assertTrue(restored.should_block("https://telemetry.example/pixel"))
             self.assertFalse(restored.should_block("https://trusted.telemetry.example/pixel"))
 
+    def test_rule_index_preserves_substring_and_regex_matches(self) -> None:
+        blocker = AdBlocker()
+        blocker.load_rules(
+            "\n".join(
+                (
+                    "advert",
+                    "tracking-pixel",
+                    "/(?:foo|bar)-sponsor/",
+                    "@@||example.test/advert-safe^",
+                )
+            )
+        )
+        self.assertTrue(blocker.should_block("https://cdn.test/assets/advertisement.js"))
+        self.assertTrue(blocker.should_block("https://cdn.test/tracking-pixel.gif"))
+        self.assertTrue(blocker.should_block("https://cdn.test/bar-sponsor.js"))
+        self.assertFalse(blocker.should_block("https://example.test/advert-safe/image.js"))
+
 
 class _MemoryAdapter:
     def __init__(self, collection: SyncCollection) -> None:

@@ -38,6 +38,7 @@ _RESOURCE_TYPES = frozenset(
     }
 )
 _TYPE_ALIASES = {"xhr": "xmlhttprequest", "frame": "subdocument"}
+_INDEX_TOKEN = re.compile(r"[a-z0-9]{4,}", re.IGNORECASE)
 
 
 def _host(url: str) -> str:
@@ -206,6 +207,35 @@ def parse_rule(line: str, *, source: str = "custom") -> AdBlockRule | None:
     )
 
 
+def _index_key(rule: AdBlockRule) -> str | None:
+    """Return a mandatory literal fragment used to shortlist a network rule.
+
+    Raw regular-expression filters stay in the generic bucket because branches
+    such as ``(foo|bar)`` do not have one mandatory literal. EasyList's regular
+    network patterns do, so a four/five-character fragment is a safe index.
+    """
+
+    raw = rule.raw.removeprefix("@@").partition("$")[0]
+    if len(raw) >= 2 and raw.startswith("/") and raw.endswith("/"):
+        return None
+    tokens = _INDEX_TOKEN.findall(raw.casefold())
+    if not tokens:
+        return None
+    longest = max(tokens, key=len)
+    return longest[:5] if len(longest) >= 5 else longest
+
+
+def _url_index_keys(url: str) -> set[str]:
+    keys: set[str] = set()
+    for token in _INDEX_TOKEN.findall(url.casefold()):
+        if len(token) == 4:
+            keys.add(token)
+            continue
+        keys.update(token[index : index + 5] for index in range(len(token) - 4))
+        keys.update(token[index : index + 4] for index in range(len(token) - 3))
+    return keys
+
+
 class AdBlocker:
     """Thread-safe filter engine suitable for a WebEngine request interceptor."""
 
@@ -216,8 +246,12 @@ class AdBlocker:
         self._custom_rules: list[str] = []
         self._whitelist: set[str] = set()
         self._blocked_count = 0
+        self._keyword_index: dict[str, tuple[AdBlockRule, ...]] = {}
+        self._generic_rules: tuple[AdBlockRule, ...] = ()
         self._lock = threading.RLock()
         self._load_config()
+        with self._lock:
+            self._reindex_locked()
 
     @property
     def blocked_count(self) -> int:
@@ -257,6 +291,7 @@ class AdBlocker:
             if replace_source:
                 self._rules = [rule for rule in self._rules if rule.source != source]
             self._rules.extend(parsed)
+            self._reindex_locked()
         logger.info("Loaded %d network rules from %s", len(parsed), source)
         return len(parsed)
 
@@ -277,6 +312,7 @@ class AdBlocker:
                         self._rules.append(rule)
             else:
                 self._rules = [rule for rule in self._rules if rule.source != source]
+            self._reindex_locked()
 
     def add_custom_rule(self, raw_rule: str) -> AdBlockRule:
         rule = parse_rule(raw_rule, source="custom")
@@ -286,6 +322,7 @@ class AdBlocker:
             if raw_rule.strip() not in self._custom_rules:
                 self._custom_rules.append(raw_rule.strip())
                 self._rules.append(rule)
+                self._reindex_locked()
                 self._save_config()
         return rule
 
@@ -298,6 +335,7 @@ class AdBlocker:
             self._rules = [
                 rule for rule in self._rules if not (rule.source == "custom" and rule.raw == normalized)
             ]
+            self._reindex_locked()
             self._save_config()
             return True
 
@@ -338,10 +376,16 @@ class AdBlocker:
                 for domain in self._whitelist
             ):
                 return AdBlockDecision(False, url, reason="whitelisted")
-            rules = tuple(self._rules)
+            candidates: list[AdBlockRule] = list(self._generic_rules)
+            seen = {id(rule) for rule in candidates}
+            for key in _url_index_keys(url):
+                for rule in self._keyword_index.get(key, ()):
+                    if id(rule) not in seen:
+                        seen.add(id(rule))
+                        candidates.append(rule)
 
         matched_block: AdBlockRule | None = None
-        for rule in rules:
+        for rule in candidates:
             if not rule.matches(url, first_party_url=first_party_url, resource_type=resource_type):
                 continue
             if rule.exception:
@@ -363,6 +407,18 @@ class AdBlocker:
         return self.evaluate(url, first_party_url=first_party_url, resource_type=resource_type).blocked
 
     should_block_request = should_block
+
+    def _reindex_locked(self) -> None:
+        index: dict[str, list[AdBlockRule]] = {}
+        generic: list[AdBlockRule] = []
+        for rule in self._rules:
+            key = _index_key(rule)
+            if key is None:
+                generic.append(rule)
+            else:
+                index.setdefault(key, []).append(rule)
+        self._keyword_index = {key: tuple(values) for key, values in index.items()}
+        self._generic_rules = tuple(generic)
 
     def _load_config(self) -> None:
         if self.config_path is None or not self.config_path.exists():

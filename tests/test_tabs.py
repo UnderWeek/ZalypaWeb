@@ -25,6 +25,12 @@ def test_tab_session_and_closed_restore(tmp_path: Path) -> None:
     assert restored.current_id == regular.id
     assert restored.get(regular.id).zoom == 1.25
 
+    tail = restored.add("https://tail.example")
+    restored.update(tail.id, pinned=True)
+    assert [tab.id for tab in restored.tabs[:2]] == [pinned.id, tail.id]
+    restored.update(tail.id, pinned=False)
+    assert [tab.id for tab in restored.tabs[:3]] == [pinned.id, tail.id, regular.id]
+
     restored.remove(regular.id)
     reopened = restored.restore_closed()
     assert reopened is not None

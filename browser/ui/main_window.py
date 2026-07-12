@@ -53,6 +53,7 @@ from browser.services.adblock import AdBlocker
 from browser.services.extensions import ExtensionManager
 from browser.services.filter_updater import update_filter_subscription
 
+from .bookmarks_bar import BookmarksBar
 from .dialogs import (
     BookmarkDialog,
     ClearBrowsingDataDialog,
@@ -130,7 +131,12 @@ class BrowserWindow(QMainWindow):
 
         self.tab_bar = MaterialTabBar(self)
         self.navigation = NavigationBar(self)
+        self.navigation.set_profile(
+            context.profile.name,
+            str(context.profile.avatar_path) if context.profile.avatar_path else None,
+        )
         self.find_bar = FindBar(self)
+        self.bookmarks_bar = BookmarksBar(self)
         self.web_stack = QStackedWidget(self)
         self.web_stack.setObjectName("webStack")
         self.bookmarks_panel = BookmarksPanel(self)
@@ -154,6 +160,7 @@ class BrowserWindow(QMainWindow):
         layout.setSpacing(0)
         layout.addWidget(self.tab_bar)
         layout.addWidget(self.navigation)
+        layout.addWidget(self.bookmarks_bar)
         layout.addWidget(self.find_bar)
         layout.addWidget(self.splitter, 1)
         self.setCentralWidget(shell)
@@ -164,8 +171,16 @@ class BrowserWindow(QMainWindow):
         self._suggestion_timer.setSingleShot(True)
         self._suggestion_timer.setInterval(110)
         self._suggestion_timer.timeout.connect(self._refresh_suggestions)
+        self._memory_timer = QTimer(self)
+        self._memory_timer.setInterval(60_000)
+        self._memory_timer.timeout.connect(self._apply_memory_saver)
+        self._memory_timer.start()
 
         self._wire_ui()
+        self.bookmarks_bar.setVisible(
+            bool(self.settings_values.get("appearance.show_bookmarks_bar", False))
+        )
+        self._refresh_bookmarks_bar()
         self._install_shortcuts()
         self._load_persisted_downloads()
         self._restore_or_create_session()
@@ -201,6 +216,11 @@ class BrowserWindow(QMainWindow):
         self.navigation.suggestionQueryChanged.connect(self._queue_suggestions)
         self.navigation.menuRequested.connect(self._show_main_menu)
         self.navigation.siteInfoRequested.connect(self._show_site_information)
+        self.navigation.profileRequested.connect(self._show_profiles)
+        self.bookmarks_bar.navigateRequested.connect(self.navigate)
+        self.bookmarks_bar.manageRequested.connect(
+            lambda: self._show_side_panel(self.bookmarks_panel)
+        )
 
         self.find_bar.findRequested.connect(self._find_text)
         self.find_bar.closeRequested.connect(
@@ -209,10 +229,12 @@ class BrowserWindow(QMainWindow):
         self.context.engine.download_created.connect(self._on_download_created)
         self.context.engine.permission_requested.connect(self._on_permission_requested)
         self.context.engine.notification_requested.connect(self._on_notification)
+        self.context.theme.themeChanged.connect(lambda _palette: self._apply_web_theme())
 
         self.bookmarks_panel.closeRequested.connect(self.side_stack.hide)
         self.bookmarks_panel.openRequested.connect(self._open_from_panel)
         self.bookmarks_panel.addRequested.connect(self._toggle_bookmark)
+        self.bookmarks_panel.editRequested.connect(self._edit_bookmark)
         self.bookmarks_panel.deleteRequested.connect(self._delete_bookmark)
         self.bookmarks_panel.newFolderRequested.connect(self._new_bookmark_folder)
         self.bookmarks_panel.importRequested.connect(self._import_bookmarks)
@@ -338,6 +360,7 @@ class BrowserWindow(QMainWindow):
         if view is None:
             return
         self.tab_manager.set_current(tab_id)
+        view.page().setLifecycleState(QWebEnginePage.LifecycleState.Active)
         self.web_stack.setCurrentWidget(view)
         index = self._visual_index(tab_id)
         if index >= 0 and self.tab_bar.current_index() != index:
@@ -394,6 +417,8 @@ class BrowserWindow(QMainWindow):
         view = self.views.get(tab_id)
         if view is None:
             return
+        if view.url().scheme() == "auralis":
+            self._apply_theme_to_view(view)
         url = view.url().toString()
         if ok and not self.incognito and url.startswith(("http://", "https://")):
             try:
@@ -547,6 +572,15 @@ class BrowserWindow(QMainWindow):
             for item in self.context.bookmarks.list_bookmarks(limit=1000)
         ]
         self.bookmarks_panel.set_items(values)
+        self._refresh_bookmarks_bar()
+
+    def _refresh_bookmarks_bar(self) -> None:
+        self.bookmarks_bar.set_items(
+            [
+                {"title": item.title, "url": item.url}
+                for item in self.context.bookmarks.list_bookmarks(limit=50)
+            ]
+        )
 
     def _refresh_history_panel(self) -> None:
         values = [
@@ -586,6 +620,34 @@ class BrowserWindow(QMainWindow):
             self._refresh_bookmarks_panel()
         except (TypeError, ValueError, KeyError):
             self.snackbar.show_message("Не удалось удалить закладку")
+
+    def _edit_bookmark(self, bookmark_id: object) -> None:
+        try:
+            bookmark = self.context.bookmarks.get(int(bookmark_id))
+        except (TypeError, ValueError):
+            bookmark = None
+        if bookmark is None:
+            self.snackbar.show_message("Закладка не найдена")
+            return
+        folders = [(folder.id, folder.name) for folder in self.context.bookmarks.all_folders()]
+        dialog = BookmarkDialog(
+            self,
+            title=bookmark.title,
+            url=bookmark.url,
+            folders=folders,
+            folder_id=bookmark.folder_id,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        data = dialog.bookmark_data()
+        self.context.bookmarks.update(
+            bookmark.id,
+            title=str(data["title"]),
+            url=str(data["url"]),
+            folder_id=data.get("folder_id"),
+        )
+        self._refresh_bookmarks_panel()
+        self.snackbar.show_message("Закладка обновлена")
 
     def _new_bookmark_folder(self) -> None:
         name, accepted = QInputDialog.getText(self, "Новая папка", "Название папки")
@@ -857,11 +919,75 @@ class BrowserWindow(QMainWindow):
             self.context.theme.set_accent(str(value))
         elif key == "appearance.density":
             self.context.theme.set_density(str(value))
+        elif key == "appearance.ui_scale":
+            self.context.theme.set_scale(int(value))
+        elif key == "appearance.show_bookmarks_bar":
+            self.bookmarks_bar.setVisible(bool(value))
+            self._refresh_bookmarks_bar()
         elif key == "general.search_engine":
             template = SEARCH_ENGINES.get(str(value), SEARCH_ENGINES["google"])
             self.context.engine.set_search_template(template)
         elif key == "privacy.tracking_protection":
             self.context.adblocker.set_enabled(str(value) != "off")
+        elif key == "privacy.third_party_cookies":
+            self.context.engine.set_cookie_policy(self.context.profile.id, allow_third_party=not bool(value))
+        elif key == "privacy.do_not_track":
+            self.context.engine.set_do_not_track(self.context.profile.id, bool(value))
+        elif key == "performance.preload_pages":
+            self.context.engine.set_page_preloading(self.context.profile.id, bool(value))
+        elif key == "performance.memory_saver":
+            self._apply_memory_saver()
+        elif key == "performance.hardware_acceleration":
+            self.snackbar.show_message(
+                "Настройка ускорения применится после перезапуска", timeout=5000
+            )
+
+    def _apply_web_theme(self) -> None:
+        for view in self.views.values():
+            if view.url().scheme() == "auralis":
+                self._apply_theme_to_view(view)
+
+    def _apply_theme_to_view(self, view: BrowserView) -> None:
+        palette = self.context.theme.palette
+        roles = {
+            "--primary": palette.primary,
+            "--on-primary": palette.on_primary,
+            "--primary-container": palette.primary_container,
+            "--on-primary-container": palette.on_primary_container,
+            "--secondary-container": palette.secondary_container,
+            "--surface": palette.surface,
+            "--surface-container": palette.surface_container,
+            "--surface-high": palette.surface_container_high,
+            "--on-surface": palette.on_surface,
+            "--on-variant": palette.on_surface_variant,
+            "--outline": palette.outline,
+        }
+        statements = "".join(
+            f"document.documentElement.style.setProperty({name!r}, {value!r});"
+            for name, value in roles.items()
+        )
+        mode = "dark" if palette.is_dark else "light"
+        view.page().runJavaScript(f"document.documentElement.dataset.theme={mode!r};{statements}")
+
+    def _apply_memory_saver(self) -> None:
+        enabled = bool(self.settings_values.get("performance.memory_saver", True))
+        cutoff = datetime.now(UTC) - timedelta(minutes=5)
+        for tab_id, view in self.views.items():
+            if tab_id == self.current_tab_id or not enabled:
+                lifecycle = QWebEnginePage.LifecycleState.Active
+            else:
+                tab = self.tab_manager.get(tab_id)
+                try:
+                    last_active = datetime.fromisoformat(tab.last_active_at) if tab else cutoff
+                except ValueError:
+                    last_active = cutoff
+                lifecycle = (
+                    QWebEnginePage.LifecycleState.Frozen
+                    if last_active <= cutoff
+                    else QWebEnginePage.LifecycleState.Active
+                )
+            if view.page().lifecycleState() != lifecycle:
+                view.page().setLifecycleState(lifecycle)
 
     def _show_clear_data(self) -> None:
         dialog = ClearBrowsingDataDialog(self)
@@ -965,6 +1091,10 @@ class BrowserWindow(QMainWindow):
                 )
             )
         menu.addSeparator()
+        avatar = menu.addAction("Изменить аватар…")
+        avatar.triggered.connect(self._change_profile_avatar)
+        rename = menu.addAction("Переименовать профиль…")
+        rename.triggered.connect(self._rename_profile)
         create = menu.addAction("Создать профиль…")
         create.triggered.connect(self._create_profile)
         menu.exec(self.mapToGlobal(self.rect().center()))
@@ -979,6 +1109,39 @@ class BrowserWindow(QMainWindow):
             QMessageBox.warning(self, "Новый профиль", str(error))
             return
         self.profileWindowRequested.emit(profile.id, False)
+
+    def _change_profile_avatar(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Аватар профиля",
+            "",
+            "Изображения (*.png *.jpg *.jpeg *.webp *.bmp)",
+        )
+        if not path:
+            return
+        updated = self.context.profile_manager.update_profile(
+            self.context.profile.id, avatar_path=path
+        )
+        self.context.profile = updated
+        self.navigation.set_profile(updated.name, str(updated.avatar_path))
+
+    def _rename_profile(self) -> None:
+        name, accepted = QInputDialog.getText(
+            self,
+            "Имя профиля",
+            "Имя",
+            text=self.context.profile.name,
+        )
+        if not accepted or not name.strip():
+            return
+        updated = self.context.profile_manager.update_profile(
+            self.context.profile.id, name=name
+        )
+        self.context.profile = updated
+        self.navigation.set_profile(
+            updated.name,
+            str(updated.avatar_path) if updated.avatar_path else None,
+        )
 
     def _show_sync_information(self) -> None:
         QMessageBox.information(

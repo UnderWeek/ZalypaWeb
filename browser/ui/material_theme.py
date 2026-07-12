@@ -330,6 +330,7 @@ QToolButton[materialRole="icon"] {{
     min-width: {control_height}px; max-width: {control_height}px;
     min-height: {control_height}px; max-height: {control_height}px;
     padding: 0; border-radius: {control_height // 2}px;
+    font-size: 15pt; font-weight: 500;
 }}
 
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
@@ -432,6 +433,7 @@ class ThemeManager(QObject):
     modeChanged = Signal(str)
     accentChanged = Signal(str)
     densityChanged = Signal(str)
+    scaleChanged = Signal(int)
 
     def __init__(
         self,
@@ -439,6 +441,7 @@ class ThemeManager(QObject):
         mode: ThemeMode | str = ThemeMode.SYSTEM,
         accent: str = DEFAULT_ACCENT,
         density: Density | str = Density.COMFORTABLE,
+        scale: int = 100,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -446,6 +449,7 @@ class ThemeManager(QObject):
         self._mode = self._coerce_mode(mode)
         self._accent = _hex(_as_color(accent))
         self._density = self._coerce_density(density)
+        self._scale = max(80, min(140, int(scale)))
         self._palette = build_palette(self._accent, self.is_dark)
 
     @staticmethod
@@ -479,6 +483,10 @@ class ThemeManager(QObject):
         return self._palette
 
     @property
+    def scale(self) -> int:
+        return self._scale
+
+    @property
     def is_dark(self) -> bool:
         return self._mode is ThemeMode.DARK or (self._mode is ThemeMode.SYSTEM and system_prefers_dark())
 
@@ -506,6 +514,14 @@ class ThemeManager(QObject):
         self.densityChanged.emit(value.value)
         self.apply()
 
+    def set_scale(self, scale: int) -> None:
+        value = max(80, min(140, int(scale)))
+        if value == self._scale:
+            return
+        self._scale = value
+        self.scaleChanged.emit(value)
+        self.apply()
+
     def toggle_theme(self) -> None:
         self.set_mode(ThemeMode.LIGHT if self.is_dark else ThemeMode.DARK)
 
@@ -520,7 +536,9 @@ class ThemeManager(QObject):
 
         if isinstance(target, QApplication):
             self._app = target
-            target.setFont(material_font())
+            font = material_font()
+            font.setPointSizeF(font.pointSizeF() * self._scale / 100.0)
+            target.setFont(font)
             target.setPalette(self._qt_palette(self._palette))
         target.setStyleSheet(build_stylesheet(self._palette, self._density))
         self.themeChanged.emit(self._palette)

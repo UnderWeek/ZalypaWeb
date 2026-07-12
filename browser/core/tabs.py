@@ -203,7 +203,10 @@ class TabManager(QObject):
         if old_pinned != tab.pinned:
             old_index = self.index_of(tab_id)
             self._tabs.pop(old_index)
-            new_index = self._default_insertion_index(tab.pinned)
+            # Newly unpinned tabs sit directly after the pinned section, which
+            # mirrors the visual tab strip. Brand-new regular tabs still append
+            # at the end via ``_default_insertion_index`` in ``add``.
+            new_index = sum(item.pinned for item in self._tabs)
             self._tabs.insert(new_index, tab)
             self.tab_moved.emit(old_index, new_index)
         index = self.index_of(tab_id)
