@@ -336,7 +336,9 @@ class MaterialTabBar(QWidget):
         self._strip.set_metadata(index, metadata)
 
         if pinned is not None and pinned != was_pinned:
-            target = self._pinned_count(exclude=index) if pinned else max(0, self._pinned_count(exclude=index))
+            target = (
+                self._pinned_count(exclude=index) if pinned else max(0, self._pinned_count(exclude=index))
+            )
             if target != index:
                 self._strip.moveTab(index, target)
                 index = target
@@ -374,9 +376,7 @@ class MaterialTabBar(QWidget):
         return sum(
             1
             for index in range(self.count())
-            if index != exclude
-            and (metadata := self._strip.metadata(index)) is not None
-            and metadata.pinned
+            if index != exclude and (metadata := self._strip.metadata(index)) is not None and metadata.pinned
         )
 
     def _require_metadata(self, index: int) -> TabMetadata:

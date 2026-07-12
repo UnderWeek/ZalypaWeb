@@ -18,6 +18,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QAbstractButton,
+    QColorDialog,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -29,16 +30,13 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QSlider,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
-    QColorDialog,
 )
 
 from .material_theme import DEFAULT_ACCENT, MaterialButton, MaterialCard, MaterialIconButton
-
 
 DEFAULT_SETTINGS: dict[str, object] = {
     "general.home_page": "auralis://start",
@@ -98,7 +96,7 @@ class MaterialSwitch(QAbstractButton):
 
     def setChecked(self, checked: bool) -> None:  # noqa: N802
         super().setChecked(checked)
-        if not self._animation.state() == QPropertyAnimation.State.Running:
+        if self._animation.state() != QPropertyAnimation.State.Running:
             self._set_offset(1.0 if checked else 0.0)
 
     def _animate(self, checked: bool) -> None:
@@ -411,7 +409,9 @@ class SettingsPanel(QWidget):
             "При запуске",
             [
                 self._row("Домашняя страница", "Адрес кнопки «Домой» и новых окон.", home, "startup url"),
-                self._row("Восстанавливать вкладки", "Продолжать с места завершения предыдущего сеанса.", restore),
+                self._row(
+                    "Восстанавливать вкладки", "Продолжать с места завершения предыдущего сеанса.", restore
+                ),
             ],
         )
         page.add_group(
@@ -419,12 +419,18 @@ class SettingsPanel(QWidget):
             [
                 self._row("Поисковая система", "Используется для запросов из адресной строки.", search),
                 self._row("Язык интерфейса", "Изменение языка применяется после перезапуска.", language),
-                self._row("Внешние ссылки в новой вкладке", "Не заменять активную страницу ссылками из других приложений.", external),
+                self._row(
+                    "Внешние ссылки в новой вкладке",
+                    "Не заменять активную страницу ссылками из других приложений.",
+                    external,
+                ),
             ],
         )
         default_button = MaterialButton("Сделать браузером по умолчанию", page, variant="outlined")
         default_button.clicked.connect(self.defaultBrowserRequested)
-        page.add_group("Система", [self._row("Браузер по умолчанию", "Открывать веб-ссылки в Auralis.", default_button)])
+        page.add_group(
+            "Система", [self._row("Браузер по умолчанию", "Открывать веб-ссылки в Auralis.", default_button)]
+        )
         self._bind_line("general.home_page", home)
         self._bind_combo("general.search_engine", search)
         self._bind_combo("general.language", language)
@@ -434,7 +440,9 @@ class SettingsPanel(QWidget):
         return page
 
     def _build_privacy(self) -> SettingsSection:
-        page = SettingsSection("Приватность и безопасность", "Вы сами решаете, какие данные остаются на устройстве.")
+        page = SettingsSection(
+            "Приватность и безопасность", "Вы сами решаете, какие данные остаются на устройстве."
+        )
         tracking = self._combo([("Стандартная", "standard"), ("Строгая", "strict"), ("Отключена", "off")])
         third_party = MaterialSwitch(page)
         dnt = MaterialSwitch(page)
@@ -443,15 +451,31 @@ class SettingsPanel(QWidget):
         page.add_group(
             "Защита от отслеживания",
             [
-                self._row("Уровень защиты", "Блокировка известных трекеров и нежелательных сценариев.", tracking, "tracking adblock"),
-                self._row("Сторонние cookies", "Блокировать cookies, установленные другими сайтами.", third_party, "cookie"),
-                self._row("Сигнал Do Not Track", "Сообщать сайтам о нежелании участвовать в отслеживании.", dnt),
+                self._row(
+                    "Уровень защиты",
+                    "Блокировка известных трекеров и нежелательных сценариев.",
+                    tracking,
+                    "tracking adblock",
+                ),
+                self._row(
+                    "Сторонние cookies",
+                    "Блокировать cookies, установленные другими сайтами.",
+                    third_party,
+                    "cookie",
+                ),
+                self._row(
+                    "Сигнал Do Not Track", "Сообщать сайтам о нежелании участвовать в отслеживании.", dnt
+                ),
             ],
         )
         page.add_group(
             "Безопасность",
             [
-                self._row("Защита от опасных сайтов", "Проверять загрузки и навигацию по локальным спискам угроз.", safe),
+                self._row(
+                    "Защита от опасных сайтов",
+                    "Проверять загрузки и навигацию по локальным спискам угроз.",
+                    safe,
+                ),
                 self._row("Только HTTPS", "Предупреждать перед открытием незащищённых страниц.", https_only),
             ],
         )
@@ -462,7 +486,9 @@ class SettingsPanel(QWidget):
         page.add_group(
             "Данные сайтов",
             [
-                self._row("Очистить данные", "История, cookies, кеш и разрешения за выбранный период.", clear_button),
+                self._row(
+                    "Очистить данные", "История, cookies, кеш и разрешения за выбранный период.", clear_button
+                ),
                 self._row("Разрешения", "Камера, микрофон, геолокация и уведомления.", permissions_button),
             ],
         )
@@ -478,7 +504,9 @@ class SettingsPanel(QWidget):
         page = SettingsSection("Внешний вид", "Динамические цвета Material You подстраивают Auralis под вас.")
         theme = self._combo([("Как в системе", "system"), ("Светлая", "light"), ("Тёмная", "dark")])
         accent = AccentButton(DEFAULT_ACCENT, page)
-        density = self._combo([("Компактный", "compact"), ("Комфортный", "comfortable"), ("Просторный", "spacious")])
+        density = self._combo(
+            [("Компактный", "compact"), ("Комфортный", "comfortable"), ("Просторный", "spacious")]
+        )
         scale = QSlider(Qt.Orientation.Horizontal, page)
         scale.setRange(80, 130)
         scale.setSingleStep(5)
@@ -490,7 +518,12 @@ class SettingsPanel(QWidget):
             "Material You",
             [
                 self._row("Тема", "Светлая, тёмная или синхронизированная с системой.", theme),
-                self._row("Динамический цвет", "Акцент используется для поверхностей и состояний.", accent, "accent material you"),
+                self._row(
+                    "Динамический цвет",
+                    "Акцент используется для поверхностей и состояний.",
+                    accent,
+                    "accent material you",
+                ),
             ],
         )
         page.add_group(
@@ -498,7 +531,9 @@ class SettingsPanel(QWidget):
             [
                 self._row("Плотность", "Расстояние между элементами и высота полей.", density),
                 self._row("Масштаб", "Размер элементов интерфейса от 80 до 130 процентов.", scale),
-                self._row("Панель закладок", "Всегда показывать избранные сайты под адресной строкой.", bookmarks),
+                self._row(
+                    "Панель закладок", "Всегда показывать избранные сайты под адресной строкой.", bookmarks
+                ),
             ],
         )
         self._bind_combo("appearance.theme", theme)
@@ -517,14 +552,28 @@ class SettingsPanel(QWidget):
         page.add_group(
             "Система",
             [
-                self._row("Аппаратное ускорение", "Использовать GPU для композиции и видео; требуется перезапуск.", hardware, "gpu"),
-                self._row("Экономия памяти", "Освобождать неактивные вкладки и восстанавливать их по запросу.", saver),
-                self._row("Предзагрузка страниц", "Ускоряет переходы, но использует больше трафика.", preload),
+                self._row(
+                    "Аппаратное ускорение",
+                    "Использовать GPU для композиции и видео; требуется перезапуск.",
+                    hardware,
+                    "gpu",
+                ),
+                self._row(
+                    "Экономия памяти",
+                    "Освобождать неактивные вкладки и восстанавливать их по запросу.",
+                    saver,
+                ),
+                self._row(
+                    "Предзагрузка страниц", "Ускоряет переходы, но использует больше трафика.", preload
+                ),
             ],
         )
         clear_cache = MaterialButton("Очистить кеш", page, variant="outlined")
         clear_cache.clicked.connect(self.clearCacheRequested)
-        page.add_group("Хранилище", [self._row("Кеш WebEngine", "Удалить временные ресурсы сайтов.", clear_cache, "storage")])
+        page.add_group(
+            "Хранилище",
+            [self._row("Кеш WebEngine", "Удалить временные ресурсы сайтов.", clear_cache, "storage")],
+        )
         self._bind_switch("performance.hardware_acceleration", hardware)
         self._bind_switch("performance.memory_saver", saver)
         self._bind_switch("performance.preload_pages", preload)
@@ -555,7 +604,11 @@ class SettingsPanel(QWidget):
             [
                 self._row("Папка загрузок", "Основное место для скачанных файлов.", path_control),
                 self._row("Спрашивать место сохранения", "Выбирать папку отдельно для каждого файла.", ask),
-                self._row("Уведомлять о завершении", "Показывать системное уведомление после загрузки.", notifications),
+                self._row(
+                    "Уведомлять о завершении",
+                    "Показывать системное уведомление после загрузки.",
+                    notifications,
+                ),
                 self._row("Файлы", "Открыть текущую папку загрузок.", open_folder),
             ],
         )
@@ -566,7 +619,9 @@ class SettingsPanel(QWidget):
         return page
 
     def _build_profiles(self) -> SettingsSection:
-        page = SettingsSection("Профили и синхронизация", "Разделяйте данные пользователей и подключайте облачный backend.")
+        page = SettingsSection(
+            "Профили и синхронизация", "Разделяйте данные пользователей и подключайте облачный backend."
+        )
         profiles = MaterialButton("Управление профилями", page, variant="tonal")
         profiles.clicked.connect(self.profilesRequested)
         sync_switch = MaterialSwitch(page)
@@ -579,7 +634,11 @@ class SettingsPanel(QWidget):
         page.add_group(
             "Sync",
             [
-                self._row("Включить синхронизацию", "Закладки, настройки и вкладки через подключённый backend.", sync_switch),
+                self._row(
+                    "Включить синхронизацию",
+                    "Закладки, настройки и вкладки через подключённый backend.",
+                    sync_switch,
+                ),
                 self._row("Параметры Sync", "Выбрать категории данных и сервер.", configure),
             ],
         )
@@ -593,7 +652,14 @@ class SettingsPanel(QWidget):
         manage.clicked.connect(self.extensionsRequested)
         page.add_group(
             "Установленные расширения",
-            [self._row("Менеджер расширений", "Загрузка из папки, разрешения и режим разработчика.", manage, "manifest chrome")],
+            [
+                self._row(
+                    "Менеджер расширений",
+                    "Загрузка из папки, разрешения и режим разработчика.",
+                    manage,
+                    "manifest chrome",
+                )
+            ],
         )
         note = QLabel("Поддержка API Chrome Extensions зависит от возможностей Qt WebEngine.", page)
         note.setWordWrap(True)
@@ -726,8 +792,8 @@ class SettingsDialog(QDialog):
 
 
 __all__ = [
-    "AccentButton",
     "DEFAULT_SETTINGS",
+    "AccentButton",
     "MaterialSwitch",
     "SettingRow",
     "SettingsDialog",

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import asyncio
-from datetime import UTC, datetime
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime
+from pathlib import Path
 
 from browser.core.profiles import ProfileManager
 from browser.core.security import (
@@ -93,9 +92,7 @@ class AdBlockTests(unittest.TestCase):
         )
         blocker.whitelist_domain("ads.example")
         self.assertFalse(
-            blocker.should_block(
-                "https://ads.example/banner.js", "https://news.example/article", "script"
-            )
+            blocker.should_block("https://ads.example/banner.js", "https://news.example/article", "script")
         )
 
     def test_custom_rules_are_persistent(self) -> None:
@@ -179,9 +176,7 @@ class ExtensionTests(unittest.TestCase):
             manager = ExtensionManager(base / "profile-extensions")
             extension = manager.install_unpacked(source)
 
-            scripts = manager.content_scripts_for(
-                "https://docs.example.com/page", run_at="document_end"
-            )
+            scripts = manager.content_scripts_for("https://docs.example.com/page", run_at="document_end")
             self.assertEqual(scripts[0][0].id, extension.id)
             manager.set_enabled(extension.id, False)
             self.assertEqual(manager.content_scripts_for("https://docs.example.com/page"), ())
@@ -198,9 +193,7 @@ class ExtensionTests(unittest.TestCase):
                         "manifest_version": 3,
                         "name": "Unsafe",
                         "version": "1",
-                        "content_scripts": [
-                            {"matches": ["<all_urls>"], "js": ["../outside.js"]}
-                        ],
+                        "content_scripts": [{"matches": ["<all_urls>"], "js": ["../outside.js"]}],
                     }
                 ),
                 encoding="utf-8",
@@ -211,4 +204,3 @@ class ExtensionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

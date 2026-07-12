@@ -10,6 +10,12 @@ from .extensions import (
     ExtensionManifestError,
     load_manifest,
 )
+from .filter_updater import (
+    EASYLIST_URL,
+    FilterUpdateError,
+    FilterUpdateResult,
+    update_filter_subscription,
+)
 from .sync import (
     InMemorySyncBackend,
     SyncAccount,
@@ -23,6 +29,7 @@ from .sync import (
 )
 
 __all__ = [
+    "EASYLIST_URL",
     "AdBlockDecision",
     "AdBlockRule",
     "AdBlocker",
@@ -32,6 +39,8 @@ __all__ = [
     "ExtensionManager",
     "ExtensionManifest",
     "ExtensionManifestError",
+    "FilterUpdateError",
+    "FilterUpdateResult",
     "InMemorySyncBackend",
     "SyncAccount",
     "SyncBackend",
@@ -42,5 +51,5 @@ __all__ = [
     "SyncRecord",
     "SyncResult",
     "load_manifest",
+    "update_filter_subscription",
 ]
-

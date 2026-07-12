@@ -7,14 +7,15 @@ lets the UI recreate web processes when a profile is switched.
 
 from __future__ import annotations
 
-from collections import deque
-from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
 import json
 import logging
 import os
+from collections import deque
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from uuid import uuid4
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -44,7 +45,7 @@ class TabState:
     last_active_at: str = field(default_factory=_utc_now)
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "TabState":
+    def from_dict(cls, value: dict[str, Any]) -> TabState:
         allowed = {name for name in cls.__dataclass_fields__}
         payload = {key: item for key, item in value.items() if key in allowed}
         payload["zoom"] = min(5.0, max(0.25, float(payload.get("zoom", 1.0))))
@@ -64,7 +65,7 @@ class TabGroup:
     collapsed: bool = False
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "TabGroup":
+    def from_dict(cls, value: dict[str, Any]) -> TabGroup:
         allowed = {name for name in cls.__dataclass_fields__}
         return cls(**{key: item for key, item in value.items() if key in allowed})
 
@@ -340,4 +341,3 @@ class TabManager(QObject):
     def _default_insertion_index(self, pinned: bool) -> int:
         pinned_count = sum(tab.pinned for tab in self._tabs)
         return pinned_count if pinned else len(self._tabs)
-

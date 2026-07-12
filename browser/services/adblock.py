@@ -7,15 +7,16 @@ WebEngine cosmetic-filter adapter is installed.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import contextlib
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import tempfile
 import threading
-from typing import Iterable, Iterator
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from pathlib import Path
 from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
@@ -264,9 +265,7 @@ class AdBlocker:
     ) -> int:
         filter_path = Path(path)
         text = filter_path.read_text(encoding="utf-8-sig", errors="replace")
-        return self.load_rules(
-            text, source=source or filter_path.name, replace_source=replace_source
-        )
+        return self.load_rules(text, source=source or filter_path.name, replace_source=replace_source)
 
     def clear_rules(self, source: str | None = None) -> None:
         with self._lock:
@@ -297,9 +296,7 @@ class AdBlocker:
                 return False
             self._custom_rules.remove(normalized)
             self._rules = [
-                rule
-                for rule in self._rules
-                if not (rule.source == "custom" and rule.raw == normalized)
+                rule for rule in self._rules if not (rule.source == "custom" and rule.raw == normalized)
             ]
             self._save_config()
             return True
@@ -337,8 +334,7 @@ class AdBlocker:
             if not self.enabled:
                 return AdBlockDecision(False, url, reason="disabled")
             if any(
-                _domain_matches(request_host, domain)
-                or _domain_matches(first_party_host, domain)
+                _domain_matches(request_host, domain) or _domain_matches(first_party_host, domain)
                 for domain in self._whitelist
             ):
                 return AdBlockDecision(False, url, reason="whitelisted")
@@ -346,23 +342,17 @@ class AdBlocker:
 
         matched_block: AdBlockRule | None = None
         for rule in rules:
-            if not rule.matches(
-                url, first_party_url=first_party_url, resource_type=resource_type
-            ):
+            if not rule.matches(url, first_party_url=first_party_url, resource_type=resource_type):
                 continue
             if rule.exception:
-                return AdBlockDecision(
-                    False, url, rule.raw, rule.source, reason="exception_rule"
-                )
+                return AdBlockDecision(False, url, rule.raw, rule.source, reason="exception_rule")
             if matched_block is None:
                 matched_block = rule
         if matched_block is None:
             return AdBlockDecision(False, url)
         with self._lock:
             self._blocked_count += 1
-        return AdBlockDecision(
-            True, url, matched_block.raw, matched_block.source, reason="filter_rule"
-        )
+        return AdBlockDecision(True, url, matched_block.raw, matched_block.source, reason="filter_rule")
 
     def should_block(
         self,
@@ -370,9 +360,7 @@ class AdBlocker:
         first_party_url: str | None = None,
         resource_type: str | None = None,
     ) -> bool:
-        return self.evaluate(
-            url, first_party_url=first_party_url, resource_type=resource_type
-        ).blocked
+        return self.evaluate(url, first_party_url=first_party_url, resource_type=resource_type).blocked
 
     should_block_request = should_block
 
@@ -400,9 +388,7 @@ class AdBlocker:
         if self.config_path is None:
             return
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(
-            prefix="adblock-", suffix=".tmp", dir=self.config_path.parent
-        )
+        fd, temporary = tempfile.mkstemp(prefix="adblock-", suffix=".tmp", dir=self.config_path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(
@@ -420,10 +406,8 @@ class AdBlocker:
                 os.fsync(handle.fileno())
             os.replace(temporary, self.config_path)
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(temporary)
-            except OSError:
-                pass
             raise
 
 

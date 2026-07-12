@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -55,7 +55,7 @@ class BookmarkItem:
     created_at: datetime | None = None
 
     @classmethod
-    def from_value(cls, value: "BookmarkItem | dict[str, object]") -> "BookmarkItem":
+    def from_value(cls, value: BookmarkItem | dict[str, object]) -> BookmarkItem:
         if isinstance(value, cls):
             return value
         return cls(
@@ -77,7 +77,7 @@ class HistoryItem:
     visit_count: int = 1
 
     @classmethod
-    def from_value(cls, value: "HistoryItem | dict[str, object]") -> "HistoryItem":
+    def from_value(cls, value: HistoryItem | dict[str, object]) -> HistoryItem:
         if isinstance(value, cls):
             return value
         return cls(
@@ -103,7 +103,7 @@ class DownloadItem:
     error: str = ""
 
     @classmethod
-    def from_value(cls, value: "DownloadItem | dict[str, object]") -> "DownloadItem":
+    def from_value(cls, value: DownloadItem | dict[str, object]) -> DownloadItem:
         if isinstance(value, cls):
             return value
         path = str(value.get("path") or value.get("target_path") or "")
@@ -217,7 +217,12 @@ class BookmarksPanel(MaterialSidePanel):
             child.setData(
                 0,
                 Qt.ItemDataRole.UserRole,
-                {"type": "bookmark", "id": bookmark.bookmark_id, "url": bookmark.url, "title": bookmark.title},
+                {
+                    "type": "bookmark",
+                    "id": bookmark.bookmark_id,
+                    "url": bookmark.url,
+                    "title": bookmark.title,
+                },
             )
             parent.addChild(child)
         if loose.childCount():
@@ -276,7 +281,9 @@ class BookmarksPanel(MaterialSidePanel):
             for child_index in range(folder.childCount()):
                 child = folder.child(child_index)
                 data = child.data(0, Qt.ItemDataRole.UserRole)
-                haystack = f"{child.text(0)} {data.get('url', '') if isinstance(data, dict) else ''}".casefold()
+                haystack = (
+                    f"{child.text(0)} {data.get('url', '') if isinstance(data, dict) else ''}".casefold()
+                )
                 visible = not needle or needle in haystack
                 child.setHidden(not visible)
                 visible_children += int(visible)
@@ -327,7 +334,9 @@ class HistoryPanel(MaterialSidePanel):
             time_label = entry.visited_at.strftime("%H:%M") if entry.visited_at else ""
             child = QTreeWidgetItem([f"{time_label}   {entry.title}"])
             child.setToolTip(0, entry.url)
-            child.setData(0, Qt.ItemDataRole.UserRole, {"type": "history", "id": entry.history_id, "url": entry.url})
+            child.setData(
+                0, Qt.ItemDataRole.UserRole, {"type": "history", "id": entry.history_id, "url": entry.url}
+            )
             group.addChild(child)
         self.tree.expandAll()
         self._filter(self.search.text())
@@ -359,7 +368,9 @@ class HistoryPanel(MaterialSidePanel):
             for child_index in range(group.childCount()):
                 child = group.child(child_index)
                 data = child.data(0, Qt.ItemDataRole.UserRole)
-                haystack = f"{child.text(0)} {data.get('url', '') if isinstance(data, dict) else ''}".casefold()
+                haystack = (
+                    f"{child.text(0)} {data.get('url', '') if isinstance(data, dict) else ''}".casefold()
+                )
                 visible = not needle or needle in haystack
                 child.setHidden(not visible)
                 visible_children += int(visible)
@@ -374,7 +385,7 @@ class DownloadRow(MaterialCard):
     showInFolderRequested = Signal(object)
     removeRequested = Signal(object)
 
-    ACTIVE_STATES = {"queued", "in_progress", "downloading", "paused"}
+    ACTIVE_STATES: ClassVar[frozenset[str]] = frozenset({"queued", "in_progress", "downloading", "paused"})
 
     def __init__(self, item: DownloadItem, parent: QWidget | None = None) -> None:
         super().__init__(parent, role="surfaceContainer")

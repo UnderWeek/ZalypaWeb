@@ -8,21 +8,23 @@ content-script injection without changing storage or UI code.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+import contextlib
 import fnmatch
 import hashlib
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import shutil
 import tempfile
 import threading
-from typing import Any, Iterable, Mapping, Protocol
-from urllib.parse import urlsplit
 import zipfile
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -262,18 +264,14 @@ def load_manifest(extension_root: str | Path) -> ExtensionManifest:
         description=description,
         permissions=frozenset(api_permissions),
         host_permissions=frozenset(host_permissions),
-        optional_permissions=frozenset(
-            _strings(payload.get("optional_permissions"), "optional_permissions")
-        ),
+        optional_permissions=frozenset(_strings(payload.get("optional_permissions"), "optional_permissions")),
         content_scripts=content_scripts,
         background_scripts=background_scripts,
         background_service_worker=service_worker,
         action=action,
         icons=icons,
         minimum_chrome_version=(
-            str(payload["minimum_chrome_version"])
-            if payload.get("minimum_chrome_version")
-            else None
+            str(payload["minimum_chrome_version"]) if payload.get("minimum_chrome_version") else None
         ),
         raw=payload,
     )
@@ -364,9 +362,7 @@ class ExtensionManager:
                     state = self._state.get("extensions", {}).get(extension_id, {})
                     installed_raw = state.get("installed_at")
                     installed_at = (
-                        datetime.fromisoformat(installed_raw)
-                        if installed_raw
-                        else datetime.now(UTC)
+                        datetime.fromisoformat(installed_raw) if installed_raw else datetime.now(UTC)
                     )
                     if installed_at.tzinfo is None:
                         installed_at = installed_at.replace(tzinfo=UTC)
@@ -537,9 +533,7 @@ class ExtensionManager:
                 for extension in self._extensions.values()
             },
         }
-        fd, temporary = tempfile.mkstemp(
-            prefix="extensions-", suffix=".tmp", dir=self.extensions_root
-        )
+        fd, temporary = tempfile.mkstemp(prefix="extensions-", suffix=".tmp", dir=self.extensions_root)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(self._state, handle, ensure_ascii=False, indent=2, sort_keys=True)
@@ -547,10 +541,8 @@ class ExtensionManager:
                 os.fsync(handle.fileno())
             os.replace(temporary, self.state_path)
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(temporary)
-            except OSError:
-                pass
             raise
 
 

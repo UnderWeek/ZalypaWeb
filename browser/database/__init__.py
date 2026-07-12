@@ -10,10 +10,10 @@ from .bookmarks import (
     BookmarkFolder,
     BookmarkImportResult,
     BookmarkRepository,
-    BookmarkTree,
-    BookmarkTreeNode,
     BookmarksDatabase,
     BookmarksRepository,
+    BookmarkTree,
+    BookmarkTreeNode,
 )
 from .connection import (
     DEFAULT_DATABASE_NAME,
@@ -34,9 +34,9 @@ from .downloads import (
     DownloadDatabase,
     DownloadRecord,
     DownloadRepository,
-    DownloadStatus,
     DownloadsDatabase,
     DownloadsRepository,
+    DownloadStatus,
 )
 from .history import (
     HistoryDatabase,
@@ -99,4 +99,3 @@ __all__ = [
     "resolve_database_path",
     "utc_now",
 ]
-

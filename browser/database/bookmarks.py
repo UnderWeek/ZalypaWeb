@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
-from datetime import datetime
 import json
 import logging
 import os
-from pathlib import Path
 import sqlite3
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Final
 
 from .connection import (
@@ -53,7 +53,7 @@ class Bookmark:
 @dataclass(frozen=True, slots=True)
 class BookmarkTreeNode:
     folder: BookmarkFolder
-    folders: tuple["BookmarkTreeNode", ...]
+    folders: tuple[BookmarkTreeNode, ...]
     bookmarks: tuple[Bookmark, ...]
 
 
@@ -120,16 +120,12 @@ def _bookmark_from_row(row: sqlite3.Row) -> Bookmark:
 class BookmarksRepository(Repository):
     """Thread-safe repository for a hierarchy of folders and bookmarks."""
 
-    def __init__(
-        self, database: SQLiteDatabase | str | os.PathLike[str]
-    ) -> None:
+    def __init__(self, database: SQLiteDatabase | str | os.PathLike[str]) -> None:
         super().__init__(database)
 
     @staticmethod
     def _require_folder(connection: sqlite3.Connection, folder_id: int) -> None:
-        if connection.execute(
-            "SELECT 1 FROM bookmark_folders WHERE id = ?", (folder_id,)
-        ).fetchone() is None:
+        if connection.execute("SELECT 1 FROM bookmark_folders WHERE id = ?", (folder_id,)).fetchone() is None:
             raise KeyError(f"Bookmark folder {folder_id} does not exist")
 
     @staticmethod
@@ -142,8 +138,7 @@ class BookmarksRepository(Repository):
         }:
             raise ValueError("Invalid position target")
         row = connection.execute(
-            f"SELECT COALESCE(MAX(position), -1) + 1 AS position "
-            f"FROM {table} WHERE {parent_column} IS ?",
+            f"SELECT COALESCE(MAX(position), -1) + 1 AS position FROM {table} WHERE {parent_column} IS ?",
             (parent_id,),
         ).fetchone()
         assert row is not None
@@ -169,9 +164,7 @@ class BookmarksRepository(Repository):
             actual_position = (
                 position
                 if position is not None
-                else self._next_position(
-                    connection, "bookmark_folders", "parent_id", parent_id
-                )
+                else self._next_position(connection, "bookmark_folders", "parent_id", parent_id)
             )
             cursor = connection.execute(
                 """
@@ -192,9 +185,7 @@ class BookmarksRepository(Repository):
     def get_folder(self, folder_id: int) -> BookmarkFolder | None:
         self._ensure_open()
         with self.database.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM bookmark_folders WHERE id = ?", (folder_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM bookmark_folders WHERE id = ?", (folder_id,)).fetchone()
         return _folder_from_row(row) if row is not None else None
 
     def list_folders(
@@ -287,17 +278,13 @@ class BookmarksRepository(Repository):
                     f"UPDATE bookmark_folders SET {', '.join(updates)} WHERE id = ?",
                     parameters,
                 )
-            row = connection.execute(
-                "SELECT * FROM bookmark_folders WHERE id = ?", (folder_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM bookmark_folders WHERE id = ?", (folder_id,)).fetchone()
         assert row is not None
         return _folder_from_row(row)
 
     move_folder = update_folder
 
-    def delete_folder(
-        self, folder_id: int, *, delete_bookmarks: bool = True
-    ) -> bool:
+    def delete_folder(self, folder_id: int, *, delete_bookmarks: bool = True) -> bool:
         """Delete a folder tree; contained bookmarks are deleted or moved to root."""
 
         self._ensure_open()
@@ -315,9 +302,7 @@ class BookmarksRepository(Repository):
                     """,
                     (folder_id,),
                 )
-            cursor = connection.execute(
-                "DELETE FROM bookmark_folders WHERE id = ?", (folder_id,)
-            )
+            cursor = connection.execute("DELETE FROM bookmark_folders WHERE id = ?", (folder_id,))
         return cursor.rowcount > 0
 
     def add(
@@ -344,9 +329,7 @@ class BookmarksRepository(Repository):
             actual_position = (
                 position
                 if position is not None
-                else self._next_position(
-                    connection, "bookmarks", "folder_id", folder_id
-                )
+                else self._next_position(connection, "bookmarks", "folder_id", folder_id)
             )
             cursor = connection.execute(
                 """
@@ -366,9 +349,7 @@ class BookmarksRepository(Repository):
                     timestamp,
                 ),
             )
-            row = connection.execute(
-                "SELECT * FROM bookmarks WHERE id = ?", (cursor.lastrowid,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM bookmarks WHERE id = ?", (cursor.lastrowid,)).fetchone()
         assert row is not None
         return _bookmark_from_row(row)
 
@@ -377,9 +358,7 @@ class BookmarksRepository(Repository):
     def get(self, bookmark_id: int) -> Bookmark | None:
         self._ensure_open()
         with self.database.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
         return _bookmark_from_row(row) if row is not None else None
 
     get_bookmark = get
@@ -435,9 +414,7 @@ class BookmarksRepository(Repository):
 
     list = list_bookmarks
 
-    def search(
-        self, query: str, *, limit: int = 100, offset: int = 0
-    ) -> list[Bookmark]:
+    def search(self, query: str, *, limit: int = 100, offset: int = 0) -> list[Bookmark]:
         self._ensure_open()
         validate_pagination(limit, offset)
         query = query.strip()
@@ -502,9 +479,7 @@ class BookmarksRepository(Repository):
             parameters.append(description.strip())
         if tags is not None:
             updates.append("tags_json = ?")
-            parameters.append(
-                json.dumps(_normalise_tags(tags), ensure_ascii=False)
-            )
+            parameters.append(json.dumps(_normalise_tags(tags), ensure_ascii=False))
         if position is not None:
             if position < 0:
                 raise ValueError("position must be non-negative")
@@ -526,18 +501,14 @@ class BookmarksRepository(Repository):
                     f"UPDATE bookmarks SET {', '.join(updates)} WHERE id = ?",
                     parameters,
                 )
-            row = connection.execute(
-                "SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
             if row is None:
                 raise KeyError(f"Bookmark {bookmark_id} does not exist")
         return _bookmark_from_row(row)
 
     update_bookmark = update
 
-    def move(
-        self, bookmark_id: int, folder_id: int | None, *, position: int | None = None
-    ) -> Bookmark:
+    def move(self, bookmark_id: int, folder_id: int | None, *, position: int | None = None) -> Bookmark:
         return self.update(bookmark_id, folder_id=folder_id, position=position)
 
     move_bookmark = move
@@ -545,9 +516,7 @@ class BookmarksRepository(Repository):
     def delete(self, bookmark_id: int) -> bool:
         self._ensure_open()
         with self.database.transaction() as connection:
-            cursor = connection.execute(
-                "DELETE FROM bookmarks WHERE id = ?", (bookmark_id,)
-            )
+            cursor = connection.execute("DELETE FROM bookmarks WHERE id = ?", (bookmark_id,))
         return cursor.rowcount > 0
 
     delete_bookmark = delete
@@ -592,9 +561,7 @@ class BookmarksRepository(Repository):
         assert row is not None
         return int(row["count"])
 
-    def export_json(
-        self, destination: str | os.PathLike[str] | None = None
-    ) -> dict[str, Any]:
+    def export_json(self, destination: str | os.PathLike[str] | None = None) -> dict[str, Any]:
         """Return a portable payload and optionally write it as UTF-8 JSON."""
 
         payload: dict[str, Any] = {
@@ -629,9 +596,7 @@ class BookmarksRepository(Repository):
         if destination is not None:
             path = Path(destination).expanduser()
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return payload
 
     def import_json(
@@ -688,9 +653,7 @@ class BookmarksRepository(Repository):
                 new_id = int(cursor.lastrowid)
                 folder_map[old_id] = new_id
                 raw_parent = raw.get("parent_id")
-                pending_parents.append(
-                    (new_id, int(raw_parent) if raw_parent is not None else None)
-                )
+                pending_parents.append((new_id, int(raw_parent) if raw_parent is not None else None))
             for new_id, old_parent in pending_parents:
                 if old_parent is None:
                     continue
@@ -778,4 +741,3 @@ __all__ = [
     "BookmarksDatabase",
     "BookmarksRepository",
 ]
-

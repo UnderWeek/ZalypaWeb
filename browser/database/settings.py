@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import os
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-import json
-import os
-import sqlite3
-from typing import Any, TypeVar, cast
+from typing import TypeVar, cast
 from urllib.parse import urlsplit
 
 from .connection import (
@@ -104,9 +104,7 @@ class SettingsRepository(Repository):
 
     SITE_PERMISSIONS_NAMESPACE = "site_permissions"
 
-    def __init__(
-        self, database: SQLiteDatabase | str | os.PathLike[str]
-    ) -> None:
+    def __init__(self, database: SQLiteDatabase | str | os.PathLike[str]) -> None:
         super().__init__(database)
 
     def get(
@@ -159,14 +157,11 @@ class SettingsRepository(Repository):
             valid = False
         if not valid:
             raise TypeError(
-                f"Setting {namespace}.{key} is {type(value).__name__}, "
-                f"expected {expected_type.__name__}"
+                f"Setting {namespace}.{key} is {type(value).__name__}, expected {expected_type.__name__}"
             )
         return cast(T, value)
 
-    def get_record(
-        self, key: str, *, namespace: str = "general"
-    ) -> SettingRecord | None:
+    def get_record(self, key: str, *, namespace: str = "general") -> SettingRecord | None:
         self._ensure_open()
         key = _validate_identifier(key, "key")
         namespace = _validate_identifier(namespace, "namespace")
@@ -217,10 +212,7 @@ class SettingsRepository(Repository):
 
         self._ensure_open()
         namespace = _validate_identifier(namespace, "namespace")
-        prepared = [
-            (_validate_identifier(key, "key"), _serialize(value))
-            for key, value in values.items()
-        ]
+        prepared = [(_validate_identifier(key, "key"), _serialize(value)) for key, value in values.items()]
         prepared.sort(key=lambda item: (item[0].casefold(), item[0]))
         if not prepared:
             return ()
@@ -365,9 +357,7 @@ class SettingsRepository(Repository):
         permission = _validate_identifier(permission, "permission").lower()
         try:
             actual_decision = (
-                decision
-                if isinstance(decision, PermissionDecision)
-                else PermissionDecision(decision.lower())
+                decision if isinstance(decision, PermissionDecision) else PermissionDecision(decision.lower())
             )
         except ValueError as exc:
             raise ValueError("decision must be 'ask', 'allow', or 'block'") from exc
@@ -392,9 +382,7 @@ class SettingsRepository(Repository):
         canonical = normalise_origin(origin)
         permission = _validate_identifier(permission, "permission").lower()
         actual_default = _coerce_permission(default)
-        value = self.get(
-            canonical, {}, namespace=self.SITE_PERMISSIONS_NAMESPACE
-        )
+        value = self.get(canonical, {}, namespace=self.SITE_PERMISSIONS_NAMESPACE)
         if not isinstance(value, dict):
             return actual_default
         raw = value.get(permission)
@@ -403,14 +391,10 @@ class SettingsRepository(Repository):
         except ValueError:
             return actual_default
 
-    def delete_site_permission(
-        self, origin: str, permission: str | None = None
-    ) -> bool:
+    def delete_site_permission(self, origin: str, permission: str | None = None) -> bool:
         canonical = normalise_origin(origin)
         if permission is None:
-            return self.delete(
-                canonical, namespace=self.SITE_PERMISSIONS_NAMESPACE
-            )
+            return self.delete(canonical, namespace=self.SITE_PERMISSIONS_NAMESPACE)
         permission = _validate_identifier(permission, "permission").lower()
         removed = False
 
@@ -420,9 +404,7 @@ class SettingsRepository(Repository):
             removed = permissions.pop(permission, None) is not None
             return cast(JSONValue, permissions)
 
-        record = self.mutate(
-            canonical, change, namespace=self.SITE_PERMISSIONS_NAMESPACE
-        )
+        record = self.mutate(canonical, change, namespace=self.SITE_PERMISSIONS_NAMESPACE)
         if record.value == {}:
             self.delete(canonical, namespace=self.SITE_PERMISSIONS_NAMESPACE)
         return removed
@@ -467,4 +449,3 @@ __all__ = [
     "SettingsRepository",
     "normalise_origin",
 ]
-

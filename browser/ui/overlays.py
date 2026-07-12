@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, Qt, QTimer
+import contextlib
+
+from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, QTimer
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QGraphicsOpacityEffect,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class Snackbar(QFrame):
@@ -20,6 +30,8 @@ class Snackbar(QFrame):
         self._action = QPushButton(self)
         self._action.setObjectName("snackbarAction")
         self._action.hide()
+        self._action_callback = None
+        self._action.clicked.connect(self._invoke_action)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(18, 10, 10, 10)
         layout.setSpacing(12)
@@ -36,17 +48,13 @@ class Snackbar(QFrame):
         self.hide()
 
     def show_message(self, text: str, *, action_text: str = "", callback=None, timeout: int = 4200) -> None:
-        try:
-            self._action.clicked.disconnect()
-        except RuntimeError:
-            pass
         self._label.setText(text)
         if action_text and callback is not None:
             self._action.setText(action_text)
-            self._action.clicked.connect(callback)
-            self._action.clicked.connect(self.hide_animated)
+            self._action_callback = callback
             self._action.show()
         else:
+            self._action_callback = None
             self._action.hide()
         self.adjustSize()
         self.setMinimumWidth(min(540, max(290, self.sizeHint().width())))
@@ -59,6 +67,13 @@ class Snackbar(QFrame):
         self._animation.start()
         self._timer.start(timeout)
 
+    def _invoke_action(self) -> None:
+        callback = self._action_callback
+        self._action_callback = None
+        if callback is not None:
+            callback()
+        self.hide_animated()
+
     def hide_animated(self) -> None:
         if not self.isVisible():
             return
@@ -69,10 +84,8 @@ class Snackbar(QFrame):
         self._animation.start()
 
     def _finish_hide(self) -> None:
-        try:
+        with contextlib.suppress(RuntimeError):
             self._animation.finished.disconnect(self._finish_hide)
-        except RuntimeError:
-            pass
         self.hide()
 
     def _reposition(self) -> None:
@@ -130,4 +143,3 @@ class TabPreview(QFrame):
         self.move(anchor + QPoint(0, 8))
         self.show()
         self.raise_()
-

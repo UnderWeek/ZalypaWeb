@@ -8,9 +8,9 @@ not necessary.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
 import logging
+from dataclasses import dataclass
+from enum import StrEnum
 from typing import Final
 
 from PySide6.QtCore import QEasingCurve, QObject, QPropertyAnimation, Qt, Signal
@@ -30,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_ACCENT: Final[str] = "#6750A4"
 
 
-class ThemeMode(str, Enum):
+class ThemeMode(StrEnum):
     """Supported colour modes."""
 
     LIGHT = "light"
@@ -38,7 +38,7 @@ class ThemeMode(str, Enum):
     SYSTEM = "system"
 
 
-class Density(str, Enum):
+class Density(StrEnum):
     """Global interface spacing presets."""
 
     COMPACT = "compact"
@@ -252,9 +252,7 @@ def build_stylesheet(
     }
     vpad, hpad, control_height, radius = metrics[density]
     p = palette
-    check_mark = (
-        "image: none;"  # Indicator colour is still visible without external assets.
-    )
+    check_mark = "image: none;"  # Indicator colour is still visible without external assets.
     return f"""
 /* Auralis Material 3 base */
 QWidget {{
@@ -482,9 +480,7 @@ class ThemeManager(QObject):
 
     @property
     def is_dark(self) -> bool:
-        return self._mode is ThemeMode.DARK or (
-            self._mode is ThemeMode.SYSTEM and system_prefers_dark()
-        )
+        return self._mode is ThemeMode.DARK or (self._mode is ThemeMode.SYSTEM and system_prefers_dark())
 
     def set_mode(self, mode: ThemeMode | str) -> None:
         value = self._coerce_mode(mode)
@@ -607,7 +603,9 @@ def set_elevation(widget: QWidget, level: int = 1) -> QGraphicsDropShadowEffect:
     return shadow
 
 
-def animate_opacity(widget: QWidget, start: float = 0.0, end: float = 1.0, duration: int = 180) -> QPropertyAnimation:
+def animate_opacity(
+    widget: QWidget, start: float = 0.0, end: float = 1.0, duration: int = 180
+) -> QPropertyAnimation:
     """Animate a widget window opacity and keep the animation alive on it."""
 
     animation = QPropertyAnimation(widget, b"windowOpacity", widget)

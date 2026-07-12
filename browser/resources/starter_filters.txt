@@ -1,0 +1,23 @@
+! Auralis starter network filters
+! EasyList-compatible syntax; users may load a complete EasyList subscription.
+||doubleclick.net^
+||googlesyndication.com^
+||googleadservices.com^
+||adservice.google.com^
+||amazon-adsystem.com^
+||ads-twitter.com^
+||adnxs.com^
+||criteo.com^
+||criteo.net^
+||scorecardresearch.com^
+||taboola.com^
+||outbrain.com^
+||zedo.com^
+||adsrvr.org^
+||advertising.com^
+||serving-sys.com^
+||hotjar.com^
+||connect.facebook.net^$third-party
+||google-analytics.com^$third-party
+||googletagmanager.com^$third-party
+

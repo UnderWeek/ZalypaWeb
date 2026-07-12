@@ -7,17 +7,26 @@ until :class:`BrowserEngine` is instantiated after ``QApplication``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import html
 import logging
 import mimetypes
-from pathlib import Path
-import re
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 from urllib.parse import quote_plus
 
-from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QObject, QStandardPaths, QUrl, Signal
+from PySide6.QtCore import (
+    QBuffer,
+    QByteArray,
+    QIODevice,
+    QObject,
+    QStandardPaths,
+    QUrl,
+    QUrlQuery,
+    Signal,
+)
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWebEngineCore import (
     QWebEngineDownloadRequest,
@@ -44,8 +53,11 @@ def register_internal_scheme() -> None:
     if _SCHEME_REGISTERED:
         return
     scheme = QWebEngineUrlScheme(INTERNAL_SCHEME)
-    scheme.setSyntax(QWebEngineUrlScheme.Syntax.HostAndPort)
-    scheme.setDefaultPort(0)
+    # Internal pages use a simple host (``auralis://newtab``).  Declaring a
+    # port-based syntax with port 0 makes recent Chromium builds terminate the
+    # renderer while validating the origin, so the stricter Host syntax is
+    # intentional here.
+    scheme.setSyntax(QWebEngineUrlScheme.Syntax.Host)
     scheme.setFlags(
         QWebEngineUrlScheme.Flag.SecureScheme
         | QWebEngineUrlScheme.Flag.LocalScheme
@@ -66,7 +78,7 @@ class ProfilePaths:
     downloads: Path
 
     @classmethod
-    def beneath(cls, root: str | Path, downloads: str | Path | None = None) -> "ProfilePaths":
+    def beneath(cls, root: str | Path, downloads: str | Path | None = None) -> ProfilePaths:
         base = Path(root)
         default_downloads = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
         return cls(
@@ -98,14 +110,13 @@ class InternalSchemeHandler(QWebEngineUrlSchemeHandler):
         url = job.requestUrl()
         host = url.host().lower()
         if host == "navigate":
-            query = QUrl.fromPercentEncoding(url.query().encode("utf-8"))
-            match = re.search(r"(?:^|&)q=([^&]*)", query)
-            raw = match.group(1) if match else ""
-            destination = self._search_url(raw.replace("+", " "))
+            raw = QUrlQuery(url).queryItemValue("q", QUrl.ComponentFormattingOption.FullyDecoded)
+            destination = self._search_url(raw)
             job.redirect(QUrl.fromUserInput(destination))
             return
         page_name = {
             "newtab": "newtab.html",
+            "start": "newtab.html",
             "welcome": "newtab.html",
             "offline": "offline.html",
         }.get(host, "not_found.html")
@@ -136,7 +147,7 @@ class InternalSchemeHandler(QWebEngineUrlSchemeHandler):
             "<!doctype html><meta charset='utf-8'><style>body{font:16px system-ui;"
             "background:#f7f2fa;color:#1d1b20;padding:10vh 12vw}</style>"
             f"<h1>Страница недоступна</h1><p>Auralis не нашёл: {safe_name}</p>"
-        ).encode("utf-8")
+        ).encode()
 
 
 class RequestInterceptor(QWebEngineUrlRequestInterceptor):
@@ -277,9 +288,9 @@ class BrowserView(QWebEngineView):
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self.new_window_factory: Callable[[Any], "BrowserView"] | None = None
+        self.new_window_factory: Callable[[Any], BrowserView] | None = None
 
-    def createWindow(self, window_type: Any) -> "BrowserView":  # noqa: N802 - Qt API
+    def createWindow(self, window_type: Any) -> BrowserView:  # noqa: N802 - Qt API
         if self.new_window_factory is not None:
             view = self.new_window_factory(window_type)
             self.new_view_created.emit(view)
@@ -420,15 +431,21 @@ class BrowserEngine(QObject):
     def search_url(self, query: str) -> str:
         return self.search_template.format(query=quote_plus(query.strip()))
 
-    def create_profile(self, profile_id: str, paths: ProfilePaths, *, off_the_record: bool = False) -> QWebEngineProfile:
+    def create_profile(
+        self, profile_id: str, paths: ProfilePaths, *, off_the_record: bool = False
+    ) -> QWebEngineProfile:
         if profile_id in self._profiles:
             return self._profiles[profile_id]
         paths.ensure()
-        profile = QWebEngineProfile(self) if off_the_record else QWebEngineProfile(f"auralis-{profile_id}", self)
+        profile = (
+            QWebEngineProfile(self) if off_the_record else QWebEngineProfile(f"auralis-{profile_id}", self)
+        )
         if not off_the_record:
             profile.setPersistentStoragePath(str(paths.storage))
             profile.setCachePath(str(paths.cache))
-            profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+            profile.setPersistentCookiesPolicy(
+                QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies
+            )
             profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.DiskHttpCache)
         profile.setDownloadPath(str(paths.downloads))
         profile.setHttpCacheMaximumSize(512 * 1024 * 1024)
@@ -504,4 +521,3 @@ class BrowserEngine(QObject):
             notification.show()
         except Exception:
             LOGGER.exception("Could not show web notification")
-

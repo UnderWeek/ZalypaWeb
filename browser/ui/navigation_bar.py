@@ -9,7 +9,6 @@ from PySide6.QtGui import QColor, QKeyEvent, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QCompleter,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QProgressBar,
     QSizePolicy,
@@ -85,7 +84,11 @@ class SuggestionDelegate(QStyledItemDelegate):
         painter.setFont(detail_font)
         url_rect = option.rect.adjusted(18, 27, -12, -4)
         metrics = painter.fontMetrics()
-        painter.drawText(url_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, metrics.elidedText(url, Qt.TextElideMode.ElideMiddle, url_rect.width()))
+        painter.drawText(
+            url_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            metrics.elidedText(url, Qt.TextElideMode.ElideMiddle, url_rect.width()),
+        )
         painter.restore()
 
     def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex):
@@ -190,7 +193,9 @@ class SecurityIndicator(QWidget):
             color = QColor("#386A20")
         else:
             color = QColor("#79747E")
-        painter.setPen(QPen(color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.setPen(
+            QPen(color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        )
         if self._internal:
             painter.drawEllipse(QPoint(17, 17), 8, 8)
             painter.drawEllipse(QPoint(17, 17), 3, 3)
@@ -262,7 +267,11 @@ class NavigationBar(QWidget):
         self.reload_button.clicked.connect(self._reload_or_stop)
         self.home_button.clicked.connect(self.homeRequested)
         self.bookmark_button.clicked.connect(self.bookmarkRequested)
-        self.menu_button.clicked.connect(lambda: self.menuRequested.emit(self.menu_button.mapToGlobal(self.menu_button.rect().bottomLeft())))
+        self.menu_button.clicked.connect(
+            lambda: self.menuRequested.emit(
+                self.menu_button.mapToGlobal(self.menu_button.rect().bottomLeft())
+            )
+        )
         self.security.clicked.connect(self.siteInfoRequested)
         self.omnibox.activated.connect(self.navigateRequested)
         self.omnibox.queryChanged.connect(self.suggestionQueryChanged)
@@ -282,7 +291,9 @@ class NavigationBar(QWidget):
             self.omnibox.setCursorPosition(0)
         internal = url.startswith("auralis://")
         secure = url.lower().startswith("https://")
-        self.security.set_state(secure=secure, internal=internal, warning=bool(url) and not secure and not internal)
+        self.security.set_state(
+            secure=secure, internal=internal, warning=bool(url) and not secure and not internal
+        )
 
     def set_navigation_state(self, *, can_back: bool, can_forward: bool) -> None:
         self.back_button.setEnabled(can_back)
@@ -310,4 +321,3 @@ class NavigationBar(QWidget):
             self.stopRequested.emit()
         else:
             self.reloadRequested.emit()
-

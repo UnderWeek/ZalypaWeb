@@ -6,17 +6,18 @@ Qt WebEngine profile adapter can both consume the same :class:`BrowserProfile`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+import contextlib
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import shutil
 import tempfile
 import threading
-from typing import Any, Iterable
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class ProfilePaths:
     permissions: Path
 
     @classmethod
-    def from_root(cls, root: Path) -> "ProfilePaths":
+    def from_root(cls, root: Path) -> ProfilePaths:
         return cls(
             root=root,
             database=root / "browser.sqlite3",
@@ -300,9 +301,7 @@ class ProfileManager:
             "profiles": [profile.to_registry_dict() for profile in self.list_profiles()],
         }
         self.data_root.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(
-            prefix="profiles-", suffix=".tmp", dir=self.data_root, text=True
-        )
+        fd, temporary = tempfile.mkstemp(prefix="profiles-", suffix=".tmp", dir=self.data_root, text=True)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(payload, handle, ensure_ascii=False, indent=2)
@@ -310,10 +309,8 @@ class ProfileManager:
                 os.fsync(handle.fileno())
             os.replace(temporary, self.registry_path)
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(temporary)
-            except OSError:
-                pass
             raise
 
 

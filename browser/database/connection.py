@@ -8,15 +8,15 @@ concurrent readers inexpensive.
 
 from __future__ import annotations
 
+import logging
+import os
+import sqlite3
+import threading
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import logging
-import os
 from pathlib import Path
-import sqlite3
-import threading
 from types import TracebackType
 from typing import Any, Final, Self
 from uuid import uuid4
@@ -48,9 +48,7 @@ def datetime_to_storage(value: datetime) -> str:
         # A naive timestamp is interpreted as UTC, never as the machine's local
         # timezone.  This keeps profile databases portable across timezones.
         value = value.replace(tzinfo=UTC)
-    return value.astimezone(UTC).isoformat(timespec="microseconds").replace(
-        "+00:00", "Z"
-    )
+    return value.astimezone(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def datetime_from_storage(value: str) -> datetime:
@@ -346,9 +344,7 @@ class SQLiteDatabase:
                             datetime_to_storage(utc_now()),
                         ),
                     )
-                connection.execute(
-                    f"PRAGMA user_version = {max(known_versions, default=0)}"
-                )
+                connection.execute(f"PRAGMA user_version = {max(known_versions, default=0)}")
                 connection.commit()
                 return max(known_versions, default=0)
             except Exception as exc:
@@ -379,9 +375,7 @@ class SQLiteDatabase:
         """Return the output of SQLite's integrity checker (``('ok',)`` normally)."""
 
         with self.connection() as connection:
-            return tuple(
-                str(row[0]) for row in connection.execute("PRAGMA integrity_check")
-            )
+            return tuple(str(row[0]) for row in connection.execute("PRAGMA integrity_check"))
 
     def checkpoint(self, *, truncate: bool = False) -> tuple[int, int, int]:
         """Checkpoint WAL data and return SQLite's status tuple."""
@@ -427,9 +421,7 @@ class Repository:
 
     def __init__(self, database: SQLiteDatabase | str | os.PathLike[str]) -> None:
         self._owns_database = not isinstance(database, SQLiteDatabase)
-        self.database = (
-            database if isinstance(database, SQLiteDatabase) else SQLiteDatabase(database)
-        )
+        self.database = database if isinstance(database, SQLiteDatabase) else SQLiteDatabase(database)
         self._closed = False
 
     def _ensure_open(self) -> None:
@@ -472,4 +464,3 @@ def escape_like(value: str) -> str:
 
 
 RowMapping = sqlite3.Row | dict[str, Any]
-

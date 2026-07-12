@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import StrEnum
-from ipaddress import ip_address
+import contextlib
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import tempfile
 import threading
-from typing import Any, Iterable
-from urllib.parse import SplitResult, urlsplit, urlunsplit
+from collections.abc import Iterable
+from dataclasses import dataclass
+from enum import StrEnum
+from ipaddress import ip_address
+from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
@@ -199,10 +200,8 @@ class SitePermissionStore:
                 os.fsync(handle.fileno())
             os.replace(temporary, self.path)
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(temporary)
-            except OSError:
-                pass
             raise
 
 
@@ -289,7 +288,9 @@ class SecurityManager:
         if self._is_local_host(host):
             return SecurityVerdict(True, URLRisk.LOCAL, normalized, host)
         if host.startswith("xn--") or ".xn--" in host:
-            return SecurityVerdict(True, URLRisk.SUSPICIOUS, normalized, host, "Интернационализированный домен")
+            return SecurityVerdict(
+                True, URLRisk.SUSPICIOUS, normalized, host, "Интернационализированный домен"
+            )
         risk = URLRisk.SECURE if scheme == "https" else URLRisk.INSECURE
         reason = None if risk is URLRisk.SECURE else "Соединение не использует HTTPS"
         return SecurityVerdict(True, risk, normalized, host, reason)

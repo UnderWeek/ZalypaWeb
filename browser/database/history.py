@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
 import os
 import sqlite3
+from dataclasses import dataclass
+from datetime import datetime
 
 from .connection import (
     Repository,
@@ -71,9 +71,7 @@ def _search_from_row(row: sqlite3.Row) -> SearchHistoryEntry:
 class HistoryRepository(Repository):
     """Thread-safe access to browsing and omnibox-search history."""
 
-    def __init__(
-        self, database: SQLiteDatabase | str | os.PathLike[str]
-    ) -> None:
+    def __init__(self, database: SQLiteDatabase | str | os.PathLike[str]) -> None:
         super().__init__(database)
 
     def add_visit(
@@ -114,9 +112,7 @@ class HistoryRepository(Repository):
     def get(self, entry_id: int) -> HistoryEntry | None:
         self._ensure_open()
         with self.database.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM history_entries WHERE id = ?", (entry_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM history_entries WHERE id = ?", (entry_id,)).fetchone()
         return _history_from_row(row) if row is not None else None
 
     def list(
@@ -173,9 +169,7 @@ class HistoryRepository(Repository):
         validate_pagination(limit, offset)
         query = query.strip()
         if not query:
-            return self.list(
-                limit=limit, offset=offset, include_hidden=include_hidden
-            )
+            return self.list(limit=limit, offset=offset, include_hidden=include_hidden)
         pattern = f"%{escape_like(query)}%"
         hidden_clause = "" if include_hidden else " AND is_hidden = 0"
         with self.database.connection() as connection:
@@ -247,18 +241,14 @@ class HistoryRepository(Repository):
         self._ensure_open()
         where = "" if include_hidden else " WHERE is_hidden = 0"
         with self.database.connection() as connection:
-            row = connection.execute(
-                f"SELECT COUNT(*) AS count FROM history_entries{where}"
-            ).fetchone()
+            row = connection.execute(f"SELECT COUNT(*) AS count FROM history_entries{where}").fetchone()
         assert row is not None
         return int(row["count"])
 
     def delete(self, entry_id: int) -> bool:
         self._ensure_open()
         with self.database.transaction() as connection:
-            cursor = connection.execute(
-                "DELETE FROM history_entries WHERE id = ?", (entry_id,)
-            )
+            cursor = connection.execute("DELETE FROM history_entries WHERE id = ?", (entry_id,))
         return cursor.rowcount > 0
 
     delete_entry = delete
@@ -367,9 +357,7 @@ class HistoryRepository(Repository):
     def delete_search(self, entry_id: int) -> bool:
         self._ensure_open()
         with self.database.transaction() as connection:
-            cursor = connection.execute(
-                "DELETE FROM search_history WHERE id = ?", (entry_id,)
-            )
+            cursor = connection.execute("DELETE FROM search_history WHERE id = ?", (entry_id,))
         return cursor.rowcount > 0
 
     def clear_search_history(self) -> int:
@@ -390,4 +378,3 @@ __all__ = [
     "HistorySuggestion",
     "SearchHistoryEntry",
 ]
-

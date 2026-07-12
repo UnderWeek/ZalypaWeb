@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import asyncio
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from enum import StrEnum
+import contextlib
 import json
 import logging
 import os
-from pathlib import Path
 import tempfile
 import threading
-from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
+from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -74,7 +76,7 @@ class SyncRecord:
         }
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> "SyncRecord":
+    def from_dict(cls, payload: Mapping[str, Any]) -> SyncRecord:
         return cls(
             record_id=str(payload["id"]),
             collection=SyncCollection(payload["collection"]),
@@ -119,13 +121,13 @@ class SyncBackend(ABC):
         """Fetch remote changes strictly newer than ``cursor``."""
 
     @abstractmethod
-    async def push(
-        self, collection: SyncCollection, records: Sequence[SyncRecord]
-    ) -> SyncPushResult:
+    async def push(self, collection: SyncCollection, records: Sequence[SyncRecord]) -> SyncPushResult:
         """Upload local records and return the backend's newest cursor."""
 
     async def close(self) -> None:
         """Release backend resources.  Stateless backends need not override it."""
+
+        return None
 
 
 @runtime_checkable
@@ -162,9 +164,7 @@ class SyncManager:
     def connected(self) -> bool:
         return self.account is not None
 
-    def register_adapter(
-        self, collection: SyncCollection | str, adapter: SyncDataAdapter
-    ) -> None:
+    def register_adapter(self, collection: SyncCollection | str, adapter: SyncDataAdapter) -> None:
         normalized = SyncCollection(collection)
         if not isinstance(adapter, SyncDataAdapter):
             raise TypeError("Adapter must implement collect_changes() and apply_remote()")
@@ -186,9 +186,7 @@ class SyncManager:
         await self.backend.close()
         self.account = None
 
-    async def sync(
-        self, collections: Sequence[SyncCollection | str] | None = None
-    ) -> tuple[SyncResult, ...]:
+    async def sync(self, collections: Sequence[SyncCollection | str] | None = None) -> tuple[SyncResult, ...]:
         if self.account is None:
             raise RuntimeError("Sync account is not connected")
         selected = (
@@ -280,9 +278,7 @@ class SyncManager:
         if self.state_path is None:
             return
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(
-            prefix="sync-", suffix=".tmp", dir=self.state_path.parent
-        )
+        fd, temporary = tempfile.mkstemp(prefix="sync-", suffix=".tmp", dir=self.state_path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(
@@ -300,10 +296,8 @@ class SyncManager:
                 os.fsync(handle.fileno())
             os.replace(temporary, self.state_path)
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(temporary)
-            except OSError:
-                pass
             raise
 
 
@@ -337,9 +331,7 @@ class InMemorySyncBackend(SyncBackend):
             newest = str(self._revision)
             return SyncBatch(tuple(record for _, record in items), newest)
 
-    async def push(
-        self, collection: SyncCollection, records: Sequence[SyncRecord]
-    ) -> SyncPushResult:
+    async def push(self, collection: SyncCollection, records: Sequence[SyncRecord]) -> SyncPushResult:
         if self.account is None:
             raise RuntimeError("Backend is not authenticated")
         accepted = 0

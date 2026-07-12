@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
-import re
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QContextMenuEvent, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -37,7 +36,7 @@ class QuickLink:
     color: str | None = None
 
     @classmethod
-    def from_value(cls, value: "QuickLink | dict[str, object]") -> "QuickLink":
+    def from_value(cls, value: QuickLink | dict[str, object]) -> QuickLink:
         if isinstance(value, cls):
             return value
         return cls(
@@ -285,7 +284,9 @@ class StartPage(QWidget):
         content_layout = QVBoxLayout(self._content)
         content_layout.setContentsMargins(32, 54, 32, 32)
         content_layout.setSpacing(12)
-        content_layout.addSpacerItem(QSpacerItem(1, 16, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        content_layout.addSpacerItem(
+            QSpacerItem(1, 16, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        )
         content_layout.addWidget(self._greeting)
         content_layout.addWidget(self._subtitle)
         content_layout.addSpacing(22)
@@ -295,7 +296,9 @@ class StartPage(QWidget):
         content_layout.addWidget(self._links_host)
         content_layout.addSpacing(26)
         content_layout.addWidget(self._privacy_chip, 0, Qt.AlignmentFlag.AlignHCenter)
-        content_layout.addSpacerItem(QSpacerItem(1, 16, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        content_layout.addSpacerItem(
+            QSpacerItem(1, 16, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        )
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)

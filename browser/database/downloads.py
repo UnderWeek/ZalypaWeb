@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import os
+import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-import os
 from pathlib import Path
-import sqlite3
 from uuid import uuid4
 
 from .connection import (
@@ -109,9 +109,7 @@ def _download_from_row(row: sqlite3.Row) -> DownloadRecord:
         started_at=datetime_from_storage(str(row["started_at"])),
         updated_at=datetime_from_storage(str(row["updated_at"])),
         finished_at=(
-            datetime_from_storage(str(row["finished_at"]))
-            if row["finished_at"] is not None
-            else None
+            datetime_from_storage(str(row["finished_at"])) if row["finished_at"] is not None else None
         ),
         error_message=str(row["error_message"]),
     )
@@ -120,9 +118,7 @@ def _download_from_row(row: sqlite3.Row) -> DownloadRecord:
 class DownloadsRepository(Repository):
     """Thread-safe persisted view of Qt WebEngine download items."""
 
-    def __init__(
-        self, database: SQLiteDatabase | str | os.PathLike[str]
-    ) -> None:
+    def __init__(self, database: SQLiteDatabase | str | os.PathLike[str]) -> None:
         super().__init__(database)
 
     def create(
@@ -174,9 +170,7 @@ class DownloadsRepository(Repository):
                     finished_at,
                 ),
             )
-            row = connection.execute(
-                "SELECT * FROM downloads WHERE id = ?", (cursor.lastrowid,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM downloads WHERE id = ?", (cursor.lastrowid,)).fetchone()
         assert row is not None
         return _download_from_row(row)
 
@@ -186,9 +180,7 @@ class DownloadsRepository(Repository):
     def get(self, download_id: int) -> DownloadRecord | None:
         self._ensure_open()
         with self.database.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM downloads WHERE id = ?", (download_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone()
         return _download_from_row(row) if row is not None else None
 
     get_download = get
@@ -196,9 +188,7 @@ class DownloadsRepository(Repository):
     def get_by_guid(self, guid: str) -> DownloadRecord | None:
         self._ensure_open()
         with self.database.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM downloads WHERE guid = ?", (guid.strip(),)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM downloads WHERE guid = ?", (guid.strip(),)).fetchone()
         return _download_from_row(row) if row is not None else None
 
     def list(
@@ -269,28 +259,20 @@ class DownloadsRepository(Repository):
             raise ValueError("bytes_per_second must be non-negative")
         timestamp = datetime_to_storage(updated_at or utc_now())
         with self.database.transaction() as connection:
-            current = connection.execute(
-                "SELECT * FROM downloads WHERE id = ?", (download_id,)
-            ).fetchone()
+            current = connection.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone()
             if current is None:
                 raise KeyError(f"Download {download_id} does not exist")
-            actual_total = (
-                int(current["total_bytes"]) if total_bytes is None else total_bytes
-            )
+            actual_total = int(current["total_bytes"]) if total_bytes is None else total_bytes
             if actual_total >= 0 and received_bytes > actual_total:
                 # Servers occasionally revise Content-Length downward.  Preserve
                 # truthful received bytes by growing the stored total.
                 actual_total = received_bytes
             actual_speed = (
-                float(current["bytes_per_second"])
-                if bytes_per_second is None
-                else float(bytes_per_second)
+                float(current["bytes_per_second"]) if bytes_per_second is None else float(bytes_per_second)
             )
             current_status = _coerce_status(str(current["status"]))
             next_status = (
-                DownloadStatus.IN_PROGRESS
-                if current_status == DownloadStatus.QUEUED
-                else current_status
+                DownloadStatus.IN_PROGRESS if current_status == DownloadStatus.QUEUED else current_status
             )
             connection.execute(
                 """
@@ -308,9 +290,7 @@ class DownloadsRepository(Repository):
                     download_id,
                 ),
             )
-            row = connection.execute(
-                "SELECT * FROM downloads WHERE id = ?", (download_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone()
         assert row is not None
         return _download_from_row(row)
 
@@ -328,9 +308,7 @@ class DownloadsRepository(Repository):
         finished_at = timestamp if actual_status.is_terminal else None
         speed = 0.0 if actual_status != DownloadStatus.IN_PROGRESS else None
         with self.database.transaction() as connection:
-            current = connection.execute(
-                "SELECT 1 FROM downloads WHERE id = ?", (download_id,)
-            ).fetchone()
+            current = connection.execute("SELECT 1 FROM downloads WHERE id = ?", (download_id,)).fetchone()
             if current is None:
                 raise KeyError(f"Download {download_id} does not exist")
             connection.execute(
@@ -350,9 +328,7 @@ class DownloadsRepository(Repository):
                     download_id,
                 ),
             )
-            row = connection.execute(
-                "SELECT * FROM downloads WHERE id = ?", (download_id,)
-            ).fetchone()
+            row = connection.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone()
         assert row is not None
         return _download_from_row(row)
 
@@ -365,12 +341,8 @@ class DownloadsRepository(Repository):
     def cancel(self, download_id: int) -> DownloadRecord:
         return self.set_status(download_id, DownloadStatus.CANCELLED)
 
-    def complete(
-        self, download_id: int, *, finished_at: datetime | None = None
-    ) -> DownloadRecord:
-        return self.set_status(
-            download_id, DownloadStatus.COMPLETED, changed_at=finished_at
-        )
+    def complete(self, download_id: int, *, finished_at: datetime | None = None) -> DownloadRecord:
+        return self.set_status(download_id, DownloadStatus.COMPLETED, changed_at=finished_at)
 
     def fail(
         self,
@@ -409,16 +381,12 @@ class DownloadsRepository(Repository):
     def delete(self, download_id: int, *, allow_active: bool = False) -> bool:
         self._ensure_open()
         with self.database.transaction() as connection:
-            row = connection.execute(
-                "SELECT status FROM downloads WHERE id = ?", (download_id,)
-            ).fetchone()
+            row = connection.execute("SELECT status FROM downloads WHERE id = ?", (download_id,)).fetchone()
             if row is None:
                 return False
             if not allow_active and _coerce_status(str(row["status"])) in ACTIVE_DOWNLOAD_STATUSES:
                 raise ValueError("Cannot remove an active download record")
-            cursor = connection.execute(
-                "DELETE FROM downloads WHERE id = ?", (download_id,)
-            )
+            cursor = connection.execute("DELETE FROM downloads WHERE id = ?", (download_id,))
         return cursor.rowcount > 0
 
     delete_download = delete
@@ -428,9 +396,7 @@ class DownloadsRepository(Repository):
         values = tuple(status.value for status in DownloadStatus if status.is_terminal)
         placeholders = ", ".join("?" for _ in values)
         with self.database.transaction() as connection:
-            cursor = connection.execute(
-                f"DELETE FROM downloads WHERE status IN ({placeholders})", values
-            )
+            cursor = connection.execute(f"DELETE FROM downloads WHERE status IN ({placeholders})", values)
         return max(cursor.rowcount, 0)
 
     def count(self, *, statuses: Iterable[DownloadStatus | str] | None = None) -> int:
@@ -444,9 +410,7 @@ class DownloadsRepository(Repository):
             placeholders = ", ".join("?" for _ in parameters)
             where = f" WHERE status IN ({placeholders})"
         with self.database.connection() as connection:
-            row = connection.execute(
-                f"SELECT COUNT(*) AS count FROM downloads{where}", parameters
-            ).fetchone()
+            row = connection.execute(f"SELECT COUNT(*) AS count FROM downloads{where}", parameters).fetchone()
         assert row is not None
         return int(row["count"])
 
@@ -465,4 +429,3 @@ __all__ = [
     "DownloadsDatabase",
     "DownloadsRepository",
 ]
-

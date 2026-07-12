@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from enum import Enum
+from enum import StrEnum
+from typing import ClassVar
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QPoint, Qt, Signal
@@ -15,12 +16,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
-from .material_theme import MaterialButton, MaterialCard, set_elevation
+from .material_theme import MaterialButton, MaterialCard
 
 
 class MaterialDialog(QDialog):
@@ -186,7 +186,7 @@ class QuickLinkDialog(MaterialDialog):
         super().accept()
 
 
-class PermissionDecision(str, Enum):
+class PermissionDecision(StrEnum):
     ALLOW_ONCE = "allow_once"
     ALLOW_ALWAYS = "allow_always"
     BLOCK = "block"
@@ -197,7 +197,7 @@ class PermissionDialog(MaterialDialog):
 
     decisionMade = Signal(str, str, object)
 
-    PERMISSION_LABELS = {
+    PERMISSION_LABELS: ClassVar[dict[str, str]] = {
         "camera": "Камера",
         "microphone": "Микрофон",
         "geolocation": "Местоположение",
@@ -242,7 +242,11 @@ class PermissionDialog(MaterialDialog):
     def _finish(self, decision: PermissionDecision) -> None:
         self.decision = decision
         self.decisionMade.emit(self.origin, self.permission, decision)
-        self.done(QDialog.DialogCode.Accepted if decision is not PermissionDecision.BLOCK else QDialog.DialogCode.Rejected)
+        self.done(
+            QDialog.DialogCode.Accepted
+            if decision is not PermissionDecision.BLOCK
+            else QDialog.DialogCode.Rejected
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -335,13 +339,17 @@ class SiteInformationDialog(MaterialDialog):
     managePermissionsRequested = Signal(str)
     clearSiteDataRequested = Signal(str)
 
-    def __init__(self, information: SiteInformation | dict[str, object], parent: QWidget | None = None) -> None:
+    def __init__(
+        self, information: SiteInformation | dict[str, object], parent: QWidget | None = None
+    ) -> None:
         if isinstance(information, dict):
             information = SiteInformation(**information)
         self.information = information
         status = "Соединение защищено" if information.secure else "Соединение не защищено"
         super().__init__("Информация о сайте", information.origin, parent, width=540)
-        security = MaterialCard(self.body, role="primaryContainer" if information.secure else "surfaceContainer")
+        security = MaterialCard(
+            self.body, role="primaryContainer" if information.secure else "surfaceContainer"
+        )
         status_label = QLabel(("✓  " if information.secure else "!  ") + status, security)
         status_label.setProperty("materialRole", "subtitle")
         security_layout = QVBoxLayout(security)
@@ -378,9 +386,7 @@ class TabPreviewPopup(MaterialCard):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent, role="surfaceContainer", elevation=3)
         self.setWindowFlags(
-            Qt.WindowType.ToolTip
-            | Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.NoDropShadowWindowHint
+            Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFixedWidth(320)
