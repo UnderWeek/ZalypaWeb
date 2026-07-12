@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Новая вкладка</title>
+  <style>
+    :root {
+      --primary: #6750a4;
+      --on-primary: #fff;
+      --primary-container: #eaddff;
+      --on-primary-container: #21005d;
+      --secondary-container: #e8def8;
+      --surface: #fdf8ff;
+      --surface-container: #f3edf7;
+      --surface-high: #ece6f0;
+      --on-surface: #1d1b20;
+      --on-variant: #49454f;
+      --outline: #79747e;
+      --shadow: rgba(32, 24, 48, .16);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary: #d0bcff;
+        --on-primary: #381e72;
+        --primary-container: #4f378b;
+        --on-primary-container: #eaddff;
+        --secondary-container: #4a4458;
+        --surface: #141218;
+        --surface-container: #211f26;
+        --surface-high: #2b2930;
+        --on-surface: #e6e0e9;
+        --on-variant: #cac4d0;
+        --outline: #938f99;
+        --shadow: rgba(0, 0, 0, .34);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; }
+    body {
+      color: var(--on-surface);
+      background:
+        radial-gradient(circle at 12% 12%, color-mix(in srgb, var(--primary-container) 65%, transparent) 0 8rem, transparent 8.1rem),
+        radial-gradient(circle at 91% 76%, color-mix(in srgb, var(--secondary-container) 58%, transparent) 0 13rem, transparent 13.1rem),
+        var(--surface);
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+    .shell {
+      width: min(900px, calc(100% - 48px));
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: max(9vh, 56px) 0 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .brand { display: flex; align-items: center; gap: 15px; margin-bottom: 13px; }
+    .mark {
+      width: 54px; height: 54px; border-radius: 19px;
+      display: grid; place-items: center;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      box-shadow: 0 8px 24px var(--shadow);
+      transform: rotate(-4deg);
+    }
+    .mark svg { width: 32px; height: 32px; }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 46px); line-height: 1.15; font-weight: 650; letter-spacing: -.8px; }
+    .hello { color: var(--on-variant); margin: 0 0 30px; font-size: 15px; }
+    .search {
+      width: min(680px, 100%); height: 66px; padding: 7px 9px 7px 21px;
+      border-radius: 24px;
+      display: flex; align-items: center; gap: 13px;
+      background: var(--surface-container);
+      border: 1px solid transparent;
+      box-shadow: 0 7px 26px var(--shadow);
+      transition: border-color .2s, box-shadow .2s, transform .2s, background .2s;
+    }
+    .search:focus-within {
+      border-color: var(--primary);
+      background: var(--surface-high);
+      box-shadow: 0 10px 34px var(--shadow);
+      transform: translateY(-1px);
+    }
+    .search svg { width: 24px; color: var(--on-variant); flex: 0 0 auto; }
+    .search input {
+      border: 0; outline: 0; background: transparent; color: var(--on-surface);
+      font: inherit; font-size: 17px; width: 100%; min-width: 0;
+    }
+    .search input::placeholder { color: var(--on-variant); opacity: .8; }
+    .search button {
+      border: 0; width: 49px; height: 49px; border-radius: 17px;
+      color: var(--on-primary); background: var(--primary); cursor: pointer;
+      display: grid; place-items: center;
+      transition: transform .16s, filter .16s;
+    }
+    .search button:hover { filter: brightness(1.08); transform: scale(1.035); }
+    .search button:active { transform: scale(.94); }
+    .search button svg { color: inherit; width: 21px; }
+    .section-head {
+      width: min(680px, 100%); display: flex; justify-content: space-between; align-items: center;
+      margin: 40px 0 13px; padding: 0 3px;
+    }
+    .section-head h2 { margin: 0; font-size: 16px; font-weight: 620; letter-spacing: .1px; }
+    #clock { color: var(--on-variant); font-variant-numeric: tabular-nums; font-size: 14px; }
+    .shortcuts {
+      width: min(680px, 100%); display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 11px;
+    }
+    .shortcut {
+      min-height: 112px; padding: 15px 10px 12px; border-radius: 22px;
+      text-decoration: none; color: var(--on-surface); background: var(--surface-container);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+      border: 1px solid transparent;
+      transition: transform .18s ease, background .18s, border-color .18s, box-shadow .18s;
+    }
+    .shortcut:hover {
+      transform: translateY(-3px); background: var(--surface-high);
+      border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+      box-shadow: 0 7px 20px var(--shadow);
+    }
+    .shortcut:active { transform: scale(.97); }
+    .bubble {
+      width: 46px; height: 46px; display: grid; place-items: center; border-radius: 16px;
+      background: var(--primary-container); color: var(--on-primary-container);
+      font-weight: 700; font-size: 18px;
+    }
+    .shortcut:nth-child(2n) .bubble { background: var(--secondary-container); }
+    .shortcut span:last-child { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .tip {
+      margin-top: auto; padding-top: 52px; color: var(--on-variant); font-size: 13px;
+      display: flex; align-items: center; gap: 7px; opacity: .8;
+    }
+    .tip kbd { border-radius: 7px; padding: 3px 7px; background: var(--surface-high); font: inherit; font-weight: 600; }
+    @media (max-width: 520px) {
+      .shell { width: calc(100% - 28px); padding-top: 45px; }
+      .shortcuts { grid-template-columns: repeat(3, 1fr); }
+      .shortcut { min-height: 98px; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .mark { animation: arrive .55s cubic-bezier(.2,.8,.2,1) both; }
+      .search { animation: arrive .55s .08s cubic-bezier(.2,.8,.2,1) both; }
+      .shortcuts { animation: arrive .55s .15s cubic-bezier(.2,.8,.2,1) both; }
+      @keyframes arrive { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4.4 16.7 10.7 4a1.45 1.45 0 0 1 2.6 0l6.3 12.7a1.45 1.45 0 0 1-1.3 2.1h-3.5l-1.5-3.15h-2.7L9.1 18.8H5.7a1.45 1.45 0 0 1-1.3-2.1Z" fill="currentColor"/><circle cx="12" cy="11.2" r="1.75" fill="var(--primary-container)"/></svg>
+      </div>
+      <h1>Auralis</h1>
+    </div>
+    <p class="hello" id="greeting">Ваше пространство для интернета</p>
+
+    <form class="search" action="auralis://navigate/" method="get">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input name="q" type="text" autofocus autocomplete="off" spellcheck="false" placeholder="Найдите что-нибудь или введите адрес" aria-label="Поиск">
+      <button type="submit" aria-label="Перейти">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+
+    <div class="section-head"><h2>Быстрый доступ</h2><time id="clock"></time></div>
+    <nav class="shortcuts" aria-label="Быстрый доступ">
+      <a class="shortcut" href="https://www.google.com"><span class="bubble">G</span><span>Google</span></a>
+      <a class="shortcut" href="https://www.youtube.com"><span class="bubble">▶</span><span>YouTube</span></a>
+      <a class="shortcut" href="https://github.com"><span class="bubble">⌘</span><span>GitHub</span></a>
+      <a class="shortcut" href="https://www.wikipedia.org"><span class="bubble">W</span><span>Wikipedia</span></a>
+      <a class="shortcut" href="https://news.google.com"><span class="bubble">N</span><span>Новости</span></a>
+    </nav>
+    <div class="tip"><kbd>Ctrl</kbd><span>+</span><kbd>L</kbd><span>— перейти к адресу</span></div>
+  </main>
+  <script>
+    const hour = new Date().getHours();
+    document.querySelector('#greeting').textContent =
+      hour < 6 ? 'Спокойной ночи. Куда отправимся?' :
+      hour < 12 ? 'Доброе утро. Что найдём сегодня?' :
+      hour < 18 ? 'Добрый день. Интернет уже готов.' :
+                  'Добрый вечер. Продолжим исследовать.';
+    function tick() {
+      document.querySelector('#clock').textContent = new Intl.DateTimeFormat('ru', {hour:'2-digit', minute:'2-digit'}).format(new Date());
+    }
+    tick(); setInterval(tick, 30000);
+  </script>
+</body>
+</html>
+

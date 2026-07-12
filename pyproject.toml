@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auralis-browser"
+version = "0.1.0"
+description = "A Material 3 desktop browser powered by Python, PySide6 and Qt WebEngine"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Auralis contributors" }]
+dependencies = [
+    "PySide6>=6.8.0,<7.0",
+    "qasync>=0.27.1,<1.0",
+    "qrcode[pil]>=8.0,<9.0",
+]
+
+[project.scripts]
+auralis-browser = "browser.main:main"
+
+[tool.setuptools.packages.find]
+include = ["browser*"]
+
+[tool.setuptools.package-data]
+browser = ["resources/*.html", "resources/*.json", "resources/*.txt"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "ui: requires PySide6 and a graphical/offscreen Qt platform",
+    "webengine: starts a Qt WebEngine process",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+

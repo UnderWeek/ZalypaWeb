@@ -1,0 +1,102 @@
+"""Public persistence API for a browser profile.
+
+All repositories may share one :class:`SQLiteDatabase`, which keeps history,
+bookmarks, downloads, and settings in the same profile-local database file.
+"""
+
+from .bookmarks import (
+    Bookmark,
+    BookmarkDatabase,
+    BookmarkFolder,
+    BookmarkImportResult,
+    BookmarkRepository,
+    BookmarkTree,
+    BookmarkTreeNode,
+    BookmarksDatabase,
+    BookmarksRepository,
+)
+from .connection import (
+    DEFAULT_DATABASE_NAME,
+    DEFAULT_MIGRATIONS,
+    LATEST_SCHEMA_VERSION,
+    DatabaseError,
+    Migration,
+    MigrationError,
+    Repository,
+    SQLiteDatabase,
+    datetime_from_storage,
+    datetime_to_storage,
+    resolve_database_path,
+    utc_now,
+)
+from .downloads import (
+    ACTIVE_DOWNLOAD_STATUSES,
+    DownloadDatabase,
+    DownloadRecord,
+    DownloadRepository,
+    DownloadStatus,
+    DownloadsDatabase,
+    DownloadsRepository,
+)
+from .history import (
+    HistoryDatabase,
+    HistoryEntry,
+    HistoryRepository,
+    HistorySuggestion,
+    SearchHistoryEntry,
+)
+from .settings import (
+    JSONScalar,
+    JSONValue,
+    PermissionDecision,
+    SettingRecord,
+    SettingRepository,
+    SettingsDatabase,
+    SettingsRepository,
+    normalise_origin,
+)
+
+__all__ = [
+    "ACTIVE_DOWNLOAD_STATUSES",
+    "DEFAULT_DATABASE_NAME",
+    "DEFAULT_MIGRATIONS",
+    "LATEST_SCHEMA_VERSION",
+    "Bookmark",
+    "BookmarkDatabase",
+    "BookmarkFolder",
+    "BookmarkImportResult",
+    "BookmarkRepository",
+    "BookmarkTree",
+    "BookmarkTreeNode",
+    "BookmarksDatabase",
+    "BookmarksRepository",
+    "DatabaseError",
+    "DownloadDatabase",
+    "DownloadRecord",
+    "DownloadRepository",
+    "DownloadStatus",
+    "DownloadsDatabase",
+    "DownloadsRepository",
+    "HistoryDatabase",
+    "HistoryEntry",
+    "HistoryRepository",
+    "HistorySuggestion",
+    "JSONScalar",
+    "JSONValue",
+    "Migration",
+    "MigrationError",
+    "PermissionDecision",
+    "Repository",
+    "SQLiteDatabase",
+    "SearchHistoryEntry",
+    "SettingRecord",
+    "SettingRepository",
+    "SettingsDatabase",
+    "SettingsRepository",
+    "datetime_from_storage",
+    "datetime_to_storage",
+    "normalise_origin",
+    "resolve_database_path",
+    "utc_now",
+]
+
